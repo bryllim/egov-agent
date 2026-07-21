@@ -95,7 +95,7 @@ export type TraceStep = {
   base: number;
 };
 
-export type Attachment = { name: string; href: string };
+export type Attachment = { name: string; href: string; preview?: string };
 
 export type Msg = {
   id: number;
@@ -218,17 +218,24 @@ export type Plan = {
 /* Real, openable files in the demo document vault (public/vault/) */
 export const VAULT_FILES = {
   birthCert: {
-    name: "PSA Birth Certificate.pdf",
-    href: "/vault/psa-birth-certificate.pdf",
+    name: "PSA Birth Certificate.webp",
+    href: "/vault/birthcert.webp",
+    preview: "/vault/birthcert.webp",
   },
   meralco: {
     name: "Proof of Billing — Meralco.pdf",
     href: "/vault/meralco-bill.pdf",
+    preview: "/vault/previews/meralco-bill.png",
   },
-  photo: { name: "2x2 ID Photo.jpg", href: "/vault/2x2-id-photo.jpg" },
+  photo: {
+    name: "2x2 ID Photo.jpg",
+    href: "/vault/2x2.jpg",
+    preview: "/vault/2x2.jpg",
+  },
   brgyClearance: {
     name: "Barangay Clearance.pdf",
     href: "/vault/barangay-clearance.pdf",
+    preview: "/vault/previews/barangay-clearance.png",
   },
 };
 

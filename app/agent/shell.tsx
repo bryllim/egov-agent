@@ -52,6 +52,22 @@ type AgentShellContextValue = {
 
 const AgentShellContext = createContext<AgentShellContextValue | null>(null);
 
+function normalizeConversationIds(conversations: Conversation[]) {
+  const usedIds = new Set<string>();
+
+  return conversations.map((conversation) => {
+    let id = conversation.id;
+    let suffix = 2;
+
+    while (usedIds.has(id)) {
+      id = `${conversation.id}-${suffix++}`;
+    }
+
+    usedIds.add(id);
+    return id === conversation.id ? conversation : { ...conversation, id };
+  });
+}
+
 export function useAgentShell() {
   const ctx = useContext(AgentShellContext);
   if (!ctx) throw new Error("useAgentShell must be used inside <AgentShell>");
@@ -77,16 +93,23 @@ export function AgentShell({ children }: { children: React.ReactNode }) {
   const [storedConversations, setStoredConversations] = useState<
     Conversation[]
   >([]);
-  const conversations = storedConversations.length
-    ? storedConversations
-    : seededConversations;
+  const conversations = useMemo(
+    () =>
+      normalizeConversationIds(
+        storedConversations.length ? storedConversations : seededConversations
+      ),
+    [seededConversations, storedConversations]
+  );
   const setConversations: React.Dispatch<
     React.SetStateAction<Conversation[]>
   > = useCallback(
     (value) => {
       setStoredConversations((current) => {
-        const base = current.length ? current : seededConversations;
-        return typeof value === "function" ? value(base) : value;
+        const base = normalizeConversationIds(
+          current.length ? current : seededConversations
+        );
+        const next = typeof value === "function" ? value(base) : value;
+        return normalizeConversationIds(next);
       });
     },
     [seededConversations]

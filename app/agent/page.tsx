@@ -11,11 +11,9 @@ import {
   Copy,
   CreditCard,
   Database,
-  Eye,
   FileText,
   Fingerprint,
   HelpCircle,
-  Image as ImageIcon,
   Landmark,
   Mail,
   MapPin,
@@ -28,6 +26,7 @@ import {
 } from "lucide-react";
 import { AgentMark } from "@/components/brand";
 import { AgencySeal, sealFor } from "@/components/agency";
+import { VaultFileStamp } from "@/components/vault-file-stamp";
 import { useSensoryUI } from "@/lib/provider";
 import {
   Map as SiteMap,
@@ -37,7 +36,7 @@ import {
   MarkerPopup,
   MarkerTooltip,
 } from "@/components/ui/map";
-import { previewForm } from "./forms";
+import { PRINT_FILE_PREVIEWS, previewForm, type PrintKind } from "./forms";
 import { useAgentShell } from "./shell";
 import { DEMO_DATES as D } from "./dates";
 import {
@@ -50,6 +49,10 @@ import {
   type TraceStep,
   type User,
 } from "./brain";
+
+function latestMessageId(messages: Msg[]) {
+  return messages.reduce((latest, message) => Math.max(latest, message.id), 0);
+}
 
 /* --------------------------------- page ----------------------------------- */
 
@@ -69,7 +72,6 @@ export default function AgentPage() {
   const [listening, setListening] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
   const idRef = useRef(0);
-  const convIdRef = useRef(0);
   const lastHandledConvRef = useRef<string | null | undefined>(undefined);
   const chatViewportRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -124,10 +126,13 @@ export default function AgentPage() {
     setStreamingId(null);
     setInput("");
     if (activeConvId === null) {
+      idRef.current = 0;
       setMessages([]);
     } else {
       const conv = conversations.find((c) => c.id === activeConvId);
-      setMessages(conv ? conv.messages : []);
+      const transcript = conv ? conv.messages : [];
+      idRef.current = latestMessageId(transcript);
+      setMessages(transcript);
     }
   }, [activeConvId, conversations, clearAgentTimers]);
 
@@ -152,7 +157,7 @@ export default function AgentPage() {
       clearAgentTimers();
       setInput("");
       if (activeConvId === null) {
-        const convId = `conv-${++convIdRef.current}`;
+        const convId = `conv-${crypto.randomUUID()}`;
         const title =
           text.length > 44 ? `${text.slice(0, 44).trimEnd()}…` : text;
         lastHandledConvRef.current = convId;
@@ -333,15 +338,21 @@ export default function AgentPage() {
             </div>
           ) : (
             <div className="space-y-8">
-              {messages.map((m) =>
+              {messages.map((m, messageIndex) =>
                 m.role === "user" ? (
-                  <div key={m.id} className="animate-bubble-in flex justify-end">
+                  <div
+                    key={`${activeConvId ?? "draft"}-${m.id}-${messageIndex}`}
+                    className="animate-bubble-in flex justify-end"
+                  >
                     <div className="bg-brand-gradient max-w-[80%] rounded-3xl rounded-br-lg px-5 py-3 text-[16px] leading-relaxed text-white">
                       {m.text}
                     </div>
                   </div>
                 ) : (
-                  <div key={m.id} className="animate-bubble-in flex gap-4">
+                  <div
+                    key={`${activeConvId ?? "draft"}-${m.id}-${messageIndex}`}
+                    className="animate-bubble-in flex gap-4"
+                  >
                     <div className="mt-1 shrink-0">
                       <AgentMark size={32} />
                     </div>
@@ -359,21 +370,28 @@ export default function AgentPage() {
                         <RichText text={m.text} />
                       )}
                       {m.attachments && m.id !== streamingId && (
-                        <div className="animate-fade-in flex flex-wrap gap-2">
-                          {m.attachments.map((a) => (
+                        <div className="animate-fade-in flex flex-wrap gap-x-5 gap-y-3 pt-1">
+                          {m.attachments.map((a, index) => (
                             <a
                               key={a.name}
                               href={a.href}
                               target="_blank"
                               rel="noreferrer"
-                              className="flex items-center gap-1.5 rounded-full bg-white py-1.5 pl-2.5 pr-3 text-[12.5px] font-medium text-[#0a4f9e] shadow-[0_8px_20px_-10px_rgba(6,61,125,0.35)] transition hover:-translate-y-0.5 hover:shadow-[0_12px_24px_-10px_rgba(6,61,125,0.45)]"
+                              className="group flex min-w-[180px] max-w-[230px] cursor-pointer items-center gap-3 py-1 pr-2 text-left transition-transform duration-200 ease-out focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#0a4f9e]/30 active:scale-[0.96]"
                             >
-                              {/\.(jpe?g|png|webp)$/i.test(a.href) ? (
-                                <ImageIcon size={12} className="shrink-0" />
-                              ) : (
-                                <FileText size={12} className="shrink-0" />
-                              )}
-                              {a.name}
+                              <VaultFileStamp
+                                name={a.name}
+                                preview={a.preview}
+                                index={index}
+                              />
+                              <span className="min-w-0">
+                                <span className="line-clamp-2 text-[12.5px] font-semibold leading-snug text-slate-700 transition-colors duration-200 group-hover:text-[#0a4f9e] group-focus-visible:text-[#0a4f9e]">
+                                  {a.name}
+                                </span>
+                                <span className="font-pixel mt-1 block text-[7.5px] uppercase tracking-[0.12em] text-[#0a4f9e]/65">
+                                  Open file
+                                </span>
+                              </span>
                             </a>
                           ))}
                         </div>
@@ -1235,24 +1253,37 @@ function ActionButton({
   );
 }
 
-function previewLabel(label: string) {
-  return label.replace(/^Print\b/i, "Preview");
-}
-
-function PreviewButton({
+function PreviewStampButton({
+  kind,
   label,
   onClick,
 }: {
+  kind: PrintKind;
   label: string;
   onClick: () => void;
 }) {
+  const file = PRINT_FILE_PREVIEWS[kind];
+
   return (
     <button
       type="button"
+      aria-label={label}
       onClick={onClick}
-      className="hairline flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-white py-2.5 text-[13.5px] font-medium text-[#0a4f9e] transition hover:bg-[#f6f9ff] active:scale-[0.99]"
+      className="group flex min-h-[92px] w-full cursor-pointer items-center gap-3 py-1 pr-2 text-left transition-transform duration-200 ease-out focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#0a4f9e]/30 active:scale-[0.96]"
     >
-      <Eye size={14} /> {previewLabel(label)}
+      <VaultFileStamp
+        name={file.name}
+        preview={file.preview}
+        index={file.stampIndex}
+      />
+      <span className="min-w-0">
+        <span className="line-clamp-2 text-[13px] font-semibold leading-snug text-slate-700 transition-colors duration-200 group-hover:text-[#0a4f9e] group-focus-visible:text-[#0a4f9e]">
+          {file.name}
+        </span>
+        <span className="font-pixel mt-1 block text-[7.5px] uppercase tracking-[0.12em] text-[#0a4f9e]/65">
+          Open preview
+        </span>
+      </span>
     </button>
   );
 }
@@ -1287,7 +1318,8 @@ function ServiceCard({
   const secondaryPreview =
     card.intent && card.print ? (
       <div className="mt-2">
-        <PreviewButton
+        <PreviewStampButton
+          kind={card.print}
           label={card.printLabel ?? "Preview pre-filled form"}
           onClick={() => previewForm(card.print!, user)}
         />
@@ -1634,7 +1666,8 @@ function ServiceCard({
         </div>
         {card.print && (
           <div className="border-t border-slate-100 px-5 py-3.5">
-            <PreviewButton
+            <PreviewStampButton
+              kind={card.print}
               label={card.printLabel ?? "Preview statement"}
               onClick={() => previewForm(card.print!, user)}
             />
@@ -1667,17 +1700,17 @@ function ServiceCard({
         ))}
       </div>
       <div className="px-5 pb-4">
-        <ActionButton onClick={primary}>
-          {card.intent ? (
-            <>
-              {card.action} <ChevronRight size={16} />
-            </>
-          ) : (
-            <>
-              <Eye size={15} /> {previewLabel(card.action)}
-            </>
-          )}
-        </ActionButton>
+        {card.intent ? (
+          <ActionButton onClick={primary}>
+            {card.action} <ChevronRight size={16} />
+          </ActionButton>
+        ) : card.print ? (
+          <PreviewStampButton
+            kind={card.print}
+            label={card.action}
+            onClick={() => previewForm(card.print!, user)}
+          />
+        ) : null}
         {secondaryPreview}
       </div>
     </CardShell>

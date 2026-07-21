@@ -6,17 +6,17 @@ import {
   ArrowLeft,
   ArrowUpRight,
   BadgeCheck,
-  FileText,
-  Image as ImageIcon,
   Lock,
   Upload,
 } from "lucide-react";
 import { VAULT_FILES } from "../brain";
+import { VaultFileStamp } from "@/components/vault-file-stamp";
 import { useSensoryUI } from "@/lib/provider";
 
 type VaultDoc = {
   name: string;
   href?: string;
+  preview?: string;
   size: string;
   added: string;
   tag: "PSA-verified" | "Encrypted";
@@ -27,7 +27,8 @@ const INITIAL_DOCS: VaultDoc[] = [
   {
     name: VAULT_FILES.birthCert.name,
     href: VAULT_FILES.birthCert.href,
-    size: "1.4 MB",
+    preview: VAULT_FILES.birthCert.preview,
+    size: "203 KB",
     added: "Added Aug 2023",
     tag: "PSA-verified",
     usedFor: "Postal ID",
@@ -35,6 +36,7 @@ const INITIAL_DOCS: VaultDoc[] = [
   {
     name: VAULT_FILES.meralco.name,
     href: VAULT_FILES.meralco.href,
+    preview: VAULT_FILES.meralco.preview,
     size: "480 KB",
     added: "Added Jun 2026",
     tag: "Encrypted",
@@ -43,7 +45,8 @@ const INITIAL_DOCS: VaultDoc[] = [
   {
     name: VAULT_FILES.photo.name,
     href: VAULT_FILES.photo.href,
-    size: "210 KB",
+    preview: VAULT_FILES.photo.preview,
+    size: "119 KB",
     added: "Added Jun 2026",
     tag: "Encrypted",
     usedFor: "Postal ID",
@@ -51,6 +54,7 @@ const INITIAL_DOCS: VaultDoc[] = [
   {
     name: VAULT_FILES.brgyClearance.name,
     href: VAULT_FILES.brgyClearance.href,
+    preview: VAULT_FILES.brgyClearance.preview,
     size: "320 KB",
     added: "Added Feb 2026",
     tag: "Encrypted",
@@ -63,7 +67,7 @@ function formatSize(bytes: number) {
 }
 
 const VAULT_CAPACITY = 1024 * 1024 * 1024; // 1 GB
-const INITIAL_USED = 2_502_246; // ≈ 2.4 MB across the seeded documents
+const INITIAL_USED = 1_197_056; // ≈ 1.1 MB across the seeded documents
 
 function CapacityDonut({ usedBytes }: { usedBytes: number }) {
   const pct = Math.min(usedBytes / VAULT_CAPACITY, 1);
@@ -109,29 +113,19 @@ function CapacityDonut({ usedBytes }: { usedBytes: number }) {
   );
 }
 
-function DocIcon({ name }: { name: string }) {
-  const isImage = /\.(jpe?g|png|heic|webp)$/i.test(name);
-  const Icon = isImage ? ImageIcon : FileText;
-  return (
-    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#f2f7ff] text-[#0a4f9e]">
-      <Icon size={16} />
-    </span>
-  );
-}
-
-function DocRow({ doc }: { doc: VaultDoc }) {
+function DocRow({ doc, index }: { doc: VaultDoc; index: number }) {
   const inner = (
     <>
-      <DocIcon name={doc.name} />
+      <VaultFileStamp name={doc.name} preview={doc.preview} index={index} />
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1.5">
-          <span className="truncate text-[14px] font-semibold text-slate-700 transition group-hover:text-[#0a4f9e]">
+          <span className="truncate text-[14px] font-semibold text-slate-700 transition-colors duration-200 group-hover:text-[#0a4f9e] group-focus-visible:text-[#0a4f9e]">
             {doc.name}
           </span>
           {doc.href && (
             <ArrowUpRight
               size={13}
-              className="shrink-0 text-slate-300 transition group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-[#0a4f9e]"
+              className="shrink-0 text-slate-300 transition-[color,transform] duration-200 group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-[#0a4f9e] group-focus-visible:-translate-y-0.5 group-focus-visible:translate-x-0.5 group-focus-visible:text-[#0a4f9e]"
             />
           )}
         </div>
@@ -163,14 +157,14 @@ function DocRow({ doc }: { doc: VaultDoc }) {
         href={doc.href}
         target="_blank"
         rel="noreferrer"
-        className="group animate-step-in flex cursor-pointer items-center gap-4 rounded-xl px-2 py-2.5 transition hover:bg-white hover:shadow-[0_12px_30px_-18px_rgba(6,61,125,0.35)]"
+        className="group animate-step-in flex min-h-[88px] cursor-pointer items-center gap-3 rounded-2xl px-3 py-2 transition-[background-color,box-shadow,transform] duration-200 hover:bg-white hover:shadow-[0_12px_30px_-18px_rgba(6,61,125,0.35)] focus-visible:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0a4f9e]/25 active:scale-[0.99] sm:gap-4"
       >
         {inner}
       </a>
     );
   }
   return (
-    <div className="group animate-step-in flex items-center gap-4 px-2 py-2.5">
+    <div className="group animate-step-in flex min-h-[88px] items-center gap-3 rounded-2xl px-3 py-2 sm:gap-4">
       {inner}
     </div>
   );
@@ -205,11 +199,11 @@ export default function VaultPage() {
           <button
             type="button"
             onClick={() => router.push("/agent")}
-            className="group flex cursor-pointer items-center gap-2 rounded-full text-[13.5px] font-medium text-slate-500 transition hover:text-[#0a4f9e]"
+            className="group flex min-h-11 cursor-pointer items-center gap-2 rounded-full text-[13.5px] font-medium text-slate-500 transition-colors duration-200 hover:text-[#0a4f9e]"
           >
             <ArrowLeft
               size={16}
-              className="transition group-hover:-translate-x-0.5"
+              className="transition-transform duration-200 group-hover:-translate-x-0.5"
             />
             Back to conversation
           </button>
@@ -227,7 +221,7 @@ export default function VaultPage() {
           <button
             type="button"
             onClick={() => inputRef.current?.click()}
-            className="font-pixel flex shrink-0 cursor-pointer items-center gap-1.5 rounded-full bg-[#0a4f9e] px-3.5 py-2 text-[8.5px] uppercase tracking-[0.14em] text-white transition hover:opacity-90 active:scale-[0.97]"
+            className="font-pixel flex min-h-11 shrink-0 cursor-pointer items-center gap-1.5 rounded-full bg-[#0a4f9e] pl-3.5 pr-3 text-[8.5px] uppercase tracking-[0.14em] text-white transition-[opacity,transform] duration-150 hover:opacity-90 active:scale-[0.96]"
           >
             <Upload size={10} />
             Upload document
@@ -264,7 +258,7 @@ export default function VaultPage() {
 
         <div className="animate-fade-up delay-200 mt-6 -mx-2 space-y-1">
           {docs.map((d, i) => (
-            <DocRow key={`${d.name}-${i}`} doc={d} />
+            <DocRow key={`${d.name}-${i}`} doc={d} index={i} />
           ))}
         </div>
 

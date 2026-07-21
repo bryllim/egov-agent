@@ -21,6 +21,32 @@ export type PrintKind =
 
 export type PrintUser = { name: string; firstName: string; pcn: string };
 
+export const PRINT_FILE_PREVIEWS: Record<
+  PrintKind,
+  { name: string; preview?: string; stampIndex: number }
+> = {
+  "dfa-form": {
+    name: "DFA Passport Application.pdf",
+    preview: "/forms/dfa-passport.png",
+    stampIndex: 0,
+  },
+  "dfa-pass": { name: "DFA Appointment Pass.pdf", stampIndex: 1 },
+  "nbi-form": { name: "NBI Clearance Application.pdf", stampIndex: 2 },
+  "nbi-receipt": { name: "NBI Official Receipt.pdf", stampIndex: 3 },
+  "sss-statement": { name: "SSS Contribution Statement.pdf", stampIndex: 0 },
+  "ph-mdr": {
+    name: "PhilHealth PMRF.pdf",
+    preview: "/forms/philhealth-pmrf.png",
+    stampIndex: 1,
+  },
+  "lto-form": {
+    name: "LTO Form 21.pdf",
+    preview: "/forms/lto-apl.png",
+    stampIndex: 2,
+  },
+  "postal-pass": { name: "Postal ID Appointment Pass.pdf", stampIndex: 3 },
+};
+
 /* ------------------------------ overlay forms ------------------------------ */
 
 type OverlayField = {
