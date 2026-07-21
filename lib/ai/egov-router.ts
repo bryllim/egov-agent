@@ -1,5 +1,6 @@
 import "server-only";
 
+import { createGoogle } from "@ai-sdk/google";
 import {
   APICallError,
   generateText,
@@ -16,7 +17,7 @@ import {
   hasCompleteETravelDetails,
 } from "@/app/agent/ai-contract";
 
-const DEFAULT_MODEL = "google/gemini-3.6-flash";
+const DEFAULT_MODEL = "gemini-3.6-flash";
 const REQUEST_TIMEOUT_MS = 120_000;
 const PHILIPPINES_TIME_ZONE = "Asia/Manila";
 const REASONING_EFFORTS = [
@@ -27,6 +28,12 @@ const REASONING_EFFORTS = [
   "high",
   "xhigh",
 ] as const;
+
+const google = createGoogle({
+  apiKey:
+    process.env.GEMINI_API_KEY ||
+    process.env.GOOGLE_GENERATIVE_AI_API_KEY,
+});
 
 const ROUTE_GUIDE = `
 Choose exactly one route:
@@ -524,12 +531,15 @@ function formatRuntimeContext(now: Date) {
 }
 
 export async function routeGovernmentRequest(request: ContextualAgentRequest) {
-  const model = process.env.AI_MODEL || DEFAULT_MODEL;
+  const model = (process.env.AI_MODEL || DEFAULT_MODEL).replace(
+    /^google\//,
+    ""
+  );
   const runtimeContext = formatRuntimeContext(new Date());
 
   try {
     const generation = await generateText({
-      model,
+      model: google(model),
       instructions: `${SYSTEM_PROMPT}\n\n${runtimeContext}`,
       prompt: formatConversation(request),
       output: Output.object({

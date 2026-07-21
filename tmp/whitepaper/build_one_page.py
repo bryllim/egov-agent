@@ -83,7 +83,7 @@ def make_architecture_illustration(path: Path) -> None:
     detail_font = image_font(22)
     boxes = [
         (35, 12, 1145, 86, "ANY CHANNEL", "Web  ·  Viber  ·  agency app  ·  API"),
-        (35, 112, 1145, 198, "HEADLESS eGOV AGENT", "One core engine  ·  rules  ·  Gemini through AI Gateway"),
+        (35, 112, 1145, 198, "HEADLESS eGOV AGENT", "One core engine  ·  rules  ·  direct Gemini API"),
         (35, 224, 1145, 310, "GOVERNMENT SERVICES", "eVerify  ·  eGovPH  ·  eGovPay  ·  agency / LGU systems"),
         (35, 336, 1145, 410, "ARTIFACTS BACK IN CHAT", "Forms  ·  cards  ·  file previews  ·  receipts"),
     ]
