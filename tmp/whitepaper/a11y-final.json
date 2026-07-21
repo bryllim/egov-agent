@@ -1,0 +1,82 @@
+{
+  "file": "output/docx/eGov-Agent-Technical-Whitepaper.docx",
+  "counts": {
+    "high": 0,
+    "medium": 0,
+    "low": 8
+  },
+  "findings": [
+    {
+      "severity": "low",
+      "kind": "hyperlink_raw_url",
+      "message": "Hyperlink display text is a raw URL (often less accessible)",
+      "context": {
+        "part": "word/document.xml",
+        "text": "https://core.e.gov.ph/"
+      }
+    },
+    {
+      "severity": "low",
+      "kind": "hyperlink_raw_url",
+      "message": "Hyperlink display text is a raw URL (often less accessible)",
+      "context": {
+        "part": "word/document.xml",
+        "text": "https://egovpay.gov.ph/"
+      }
+    },
+    {
+      "severity": "low",
+      "kind": "hyperlink_raw_url",
+      "message": "Hyperlink display text is a raw URL (often less accessible)",
+      "context": {
+        "part": "word/document.xml",
+        "text": "https://psa.gov.ph/content/psa-dict-roll-out-digital-national-id-authentication-services-national-id-everify-national"
+      }
+    },
+    {
+      "severity": "low",
+      "kind": "hyperlink_raw_url",
+      "message": "Hyperlink display text is a raw URL (often less accessible)",
+      "context": {
+        "part": "word/document.xml",
+        "text": "https://everify.gov.ph/terms-of-use"
+      }
+    },
+    {
+      "severity": "low",
+      "kind": "hyperlink_raw_url",
+      "message": "Hyperlink display text is a raw URL (often less accessible)",
+      "context": {
+        "part": "word/document.xml",
+        "text": "https://privacy.gov.ph/data-privacy-act/"
+      }
+    },
+    {
+      "severity": "low",
+      "kind": "hyperlink_raw_url",
+      "message": "Hyperlink display text is a raw URL (often less accessible)",
+      "context": {
+        "part": "word/document.xml",
+        "text": "https://privacy.gov.ph/pips-and-pics/advisories-circulars/"
+      }
+    },
+    {
+      "severity": "low",
+      "kind": "hyperlink_raw_url",
+      "message": "Hyperlink display text is a raw URL (often less accessible)",
+      "context": {
+        "part": "word/document.xml",
+        "text": "https://lawphil.net/statutes/repacts/ra2018/ra_11032_2018.html"
+      }
+    },
+    {
+      "severity": "low",
+      "kind": "hyperlink_raw_url",
+      "message": "Hyperlink display text is a raw URL (often less accessible)",
+      "context": {
+        "part": "word/document.xml",
+        "text": "https://cms-cdn.e.gov.ph/DICT/pdf/DICT-Citizens-Charter-2025-1st-Edition.pdf"
+      }
+    }
+  ]
+}
