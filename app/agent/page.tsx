@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  ArrowUp,
   CalendarDays,
   Check,
   ChevronDown,
@@ -15,9 +16,11 @@ import {
   Fingerprint,
   HelpCircle,
   Landmark,
+  ImagePlus,
   Mail,
   MapPin,
   Mic,
+  Paperclip,
   Phone,
   Search,
   ShieldCheck,
@@ -48,6 +51,7 @@ import {
   type StepIcon,
   type TraceStep,
   type User,
+  type UserUpload,
 } from "./brain";
 
 function latestMessageId(messages: Msg[]) {
@@ -70,11 +74,14 @@ export default function AgentPage() {
   const [agentProgress, setAgentProgress] = useState<AgentActivity | null>(null);
   const [streamingId, setStreamingId] = useState<number | null>(null);
   const [listening, setListening] = useState(false);
+  const [pendingUploads, setPendingUploads] = useState<UserUpload[]>([]);
   const [showGuide, setShowGuide] = useState(false);
   const idRef = useRef(0);
   const lastHandledConvRef = useRef<string | null | undefined>(undefined);
   const chatViewportRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
   const scrollFrameRef = useRef<number | null>(null);
   const agentTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -125,6 +132,7 @@ export default function AgentPage() {
     setAgentProgress(null);
     setStreamingId(null);
     setInput("");
+    setPendingUploads([]);
     if (activeConvId === null) {
       idRef.current = 0;
       setMessages([]);
@@ -150,12 +158,24 @@ export default function AgentPage() {
   }, [scrollToBottom]);
 
   const send = useCallback(
-    (raw?: string) => {
-      const text = (raw ?? input).trim();
-      if (!text || !user || busy) return;
+    (raw?: string, uploads: UserUpload[] = []) => {
+      const typedText = (raw ?? input).trim();
+      if ((!typedText && uploads.length === 0) || !user || busy) return;
+
+      const text =
+        typedText ||
+        (uploads.length === 1
+          ? `Shared ${uploads[0].name}`
+          : `Shared ${uploads.length} attachments`);
+      const planInput = uploads.length
+        ? `${typedText || "Please review these attachments."}\n\nAttachments: ${uploads
+            .map((upload) => upload.name)
+            .join(", ")}`
+        : text;
 
       clearAgentTimers();
       setInput("");
+      setPendingUploads([]);
       if (activeConvId === null) {
         const convId = `conv-${crypto.randomUUID()}`;
         const title =
@@ -164,9 +184,17 @@ export default function AgentPage() {
         setConversations((cs) => [{ id: convId, title, messages: [] }, ...cs]);
         setActiveConvId(convId);
       }
-      setMessages((m) => [...m, { id: ++idRef.current, role: "user", text }]);
+      setMessages((m) => [
+        ...m,
+        {
+          id: ++idRef.current,
+          role: "user",
+          text,
+          uploads: uploads.length ? uploads : undefined,
+        },
+      ]);
 
-      const plan = agentPlan(text, user);
+      const plan = agentPlan(planInput, user);
       const startedAt = Date.now();
       const steps = plan.steps.map((s) => ({
         ...s,
@@ -258,6 +286,27 @@ export default function AgentPage() {
     ]
   );
 
+  const queueUploads = useCallback(
+    (files: FileList | null, kind: UserUpload["kind"]) => {
+      if (!files?.length) return;
+
+      const additions = Array.from(files).map((file) => ({
+        id: crypto.randomUUID(),
+        name: file.name,
+        kind,
+      }));
+      setPendingUploads((current) => [...current, ...additions].slice(0, 8));
+      void playSound("interaction.subtle");
+    },
+    [playSound]
+  );
+
+  const submitComposer = useCallback(() => {
+    if ((!input.trim() && pendingUploads.length === 0) || busy) return;
+    void playSound("interaction.confirm");
+    send(undefined, pendingUploads);
+  }, [busy, input, pendingUploads, playSound, send]);
+
   const sendRef = useRef(send);
   useEffect(() => {
     sendRef.current = send;
@@ -344,8 +393,27 @@ export default function AgentPage() {
                     key={`${activeConvId ?? "draft"}-${m.id}-${messageIndex}`}
                     className="animate-bubble-in flex justify-end"
                   >
-                    <div className="bg-brand-gradient max-w-[80%] rounded-3xl rounded-br-lg px-5 py-3 text-[16px] leading-relaxed text-white">
-                      {m.text}
+                    <div className="flex max-w-[80%] flex-col items-end">
+                      <div className="bg-brand-gradient rounded-3xl rounded-br-lg px-5 py-3 text-[16px] leading-relaxed text-white">
+                        {m.text}
+                      </div>
+                      {m.uploads && (
+                        <div className="mt-2 flex flex-wrap justify-end gap-1.5">
+                          {m.uploads.map((upload) => (
+                            <span
+                              key={upload.id}
+                              className="inline-flex max-w-52 items-center gap-1.5 rounded-full bg-white px-2.5 py-1.5 text-[11.5px] font-medium text-slate-500 shadow-[0_5px_14px_-9px_rgba(6,61,125,0.45)]"
+                            >
+                              {upload.kind === "image" ? (
+                                <ImagePlus size={12} className="shrink-0 text-[#0a4f9e]" />
+                              ) : (
+                                <Paperclip size={12} className="shrink-0 text-[#0a4f9e]" />
+                              )}
+                              <span className="truncate">{upload.name}</span>
+                            </span>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
                 ) : (
@@ -430,17 +498,43 @@ export default function AgentPage() {
 
       {/* Composer */}
       <div className="bg-[#f7faff]/90 px-6 pb-6 pt-2 backdrop-blur">
-        <div className="hairline mx-auto flex min-h-[116px] w-full max-w-2xl items-end gap-2 rounded-[28px] bg-white p-3">
+        <div className="hairline mx-auto flex min-h-[116px] w-full max-w-2xl flex-col rounded-[28px] bg-white p-3">
+          {pendingUploads.length > 0 && (
+            <div className="mb-1 flex flex-wrap gap-1.5 px-1">
+              {pendingUploads.map((upload) => (
+                <span
+                  key={upload.id}
+                  className="inline-flex max-w-56 items-center gap-1 rounded-full bg-[#f3f7fc] pl-2.5 text-[11.5px] font-medium text-slate-500"
+                >
+                  {upload.kind === "image" ? (
+                    <ImagePlus size={12} className="shrink-0 text-[#0a4f9e]" />
+                  ) : (
+                    <Paperclip size={12} className="shrink-0 text-[#0a4f9e]" />
+                  )}
+                  <span className="truncate">{upload.name}</span>
+                  <button
+                    type="button"
+                    aria-label={`Remove ${upload.name}`}
+                    onClick={() =>
+                      setPendingUploads((current) =>
+                        current.filter((item) => item.id !== upload.id)
+                      )
+                    }
+                    className="flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-full text-slate-400 transition-colors duration-150 hover:bg-slate-200/70 hover:text-slate-600 active:text-[#0a4f9e]"
+                  >
+                    <X size={13} />
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
           <textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
-                if (input.trim() && !busy) {
-                  void playSound("interaction.confirm");
-                }
-                send();
+                submitComposer();
               }
             }}
             placeholder={
@@ -450,22 +544,74 @@ export default function AgentPage() {
                   ? "eGov Agent is working…"
                   : "Ask about any government service…"
             }
-            rows={3}
-            className="min-h-20 flex-1 resize-none bg-transparent px-2 py-2 text-[16px] leading-6 outline-none placeholder:text-slate-400"
+            rows={2}
+            className="min-h-16 w-full resize-none bg-transparent px-2 py-2 text-[16px] leading-6 outline-none placeholder:text-slate-400"
           />
-          <button
-            type="button"
-            onClick={toggleMic}
-            title="Voice input"
-            aria-label="Voice input"
-            className={`mb-1 flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full transition ${
-              listening
-                ? "animate-mic-pulse bg-red-500 text-white"
-                : "text-slate-400 hover:bg-[#f6f9ff] hover:text-[#0a4f9e]"
-            }`}
-          >
-            <Mic size={19} />
-          </button>
+          <div className="flex w-full items-center gap-1">
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              hidden
+              accept=".pdf,.doc,.docx,.txt,.xls,.xlsx,.ppt,.pptx"
+              onChange={(event) => {
+                queueUploads(event.currentTarget.files, "file");
+                event.currentTarget.value = "";
+              }}
+            />
+            <input
+              ref={imageInputRef}
+              type="file"
+              multiple
+              hidden
+              accept="image/*"
+              onChange={(event) => {
+                queueUploads(event.currentTarget.files, "image");
+                event.currentTarget.value = "";
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              title="Attach files"
+              aria-label="Attach files"
+              className="flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full text-slate-400 transition-[background-color,color,transform] duration-150 hover:bg-[#f6f9ff] hover:text-[#0a4f9e] active:scale-[0.96]"
+            >
+              <Paperclip size={18} />
+            </button>
+            <button
+              type="button"
+              onClick={() => imageInputRef.current?.click()}
+              title="Upload images"
+              aria-label="Upload images"
+              className="flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full text-slate-400 transition-[background-color,color,transform] duration-150 hover:bg-[#f6f9ff] hover:text-[#0a4f9e] active:scale-[0.96]"
+            >
+              <ImagePlus size={18} />
+            </button>
+            <button
+              type="button"
+              onClick={toggleMic}
+              title="Voice input"
+              aria-label="Voice input"
+              className={`ml-auto flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full transition-[background-color,color,transform] duration-150 active:scale-[0.96] ${
+                listening
+                  ? "animate-mic-pulse bg-red-500 text-white"
+                  : "text-slate-400 hover:bg-[#f6f9ff] hover:text-[#0a4f9e]"
+              }`}
+            >
+              <Mic size={19} />
+            </button>
+            <button
+              type="button"
+              onClick={submitComposer}
+              title="Submit message"
+              aria-label="Submit message"
+              disabled={busy || (!input.trim() && pendingUploads.length === 0)}
+              className="bg-brand-gradient flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full text-white shadow-[0_8px_18px_-10px_rgba(6,61,125,0.75)] transition-[opacity,transform,box-shadow] duration-150 hover:shadow-[0_10px_22px_-10px_rgba(6,61,125,0.85)] active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-35 disabled:shadow-none disabled:active:scale-100"
+            >
+              <ArrowUp size={18} strokeWidth={2.5} />
+            </button>
+          </div>
         </div>
         <div className="mx-auto mt-3 flex max-w-2xl flex-wrap items-center justify-center gap-x-4 gap-y-2 text-[12px] text-slate-400">
           <span className="font-pixel text-[9px] uppercase tracking-[0.18em]">

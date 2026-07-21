@@ -96,6 +96,11 @@ export type TraceStep = {
 };
 
 export type Attachment = { name: string; href: string; preview?: string };
+export type UserUpload = {
+  id: string;
+  name: string;
+  kind: "file" | "image";
+};
 
 export type Msg = {
   id: number;
@@ -105,6 +110,7 @@ export type Msg = {
   trace?: TraceStep[];
   elapsed?: string;
   attachments?: Attachment[];
+  uploads?: UserUpload[];
 };
 
 export type User = { name: string; firstName: string; pcn: string; photoSrc?: string };
