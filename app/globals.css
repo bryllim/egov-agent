@@ -338,3 +338,69 @@ body {
 .scrollbar-subtle::-webkit-scrollbar-track {
   background: transparent;
 }
+
+/* Restrained, AWS-style connectors for technical architecture diagrams. */
+.architecture-connector-v,
+.architecture-connector-h {
+  --architecture-line: rgba(71, 85, 105, 0.58);
+  position: relative;
+  flex: none;
+  background: var(--architecture-line);
+}
+
+.architecture-connector-v {
+  width: 1px;
+  height: 24px;
+}
+
+.architecture-connector-v::after {
+  position: absolute;
+  right: -3px;
+  bottom: -2px;
+  width: 7px;
+  height: 7px;
+  content: "";
+  background: var(--architecture-line);
+  clip-path: polygon(0 0, 100% 0, 50% 100%);
+}
+
+.architecture-connector-h {
+  width: 48px;
+  height: 1px;
+}
+
+.architecture-connector-h::after {
+  position: absolute;
+  top: -3px;
+  right: -2px;
+  width: 7px;
+  height: 7px;
+  content: "";
+  background: var(--architecture-line);
+  clip-path: polygon(0 0, 100% 50%, 0 100%);
+}
+
+.architecture-connector-light {
+  --architecture-line: rgba(255, 255, 255, 0.72);
+}
+
+.architecture-boundary {
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.58);
+  box-shadow: 0 12px 28px -26px rgba(15, 23, 42, 0.26);
+}
+
+.architecture-node {
+  box-shadow:
+    0 1px 2px -1px rgba(15, 23, 42, 0.1),
+    0 8px 22px -20px rgba(15, 23, 42, 0.2);
+}
+
+/* Diagram rectangles use a restrained radius; the explanatory modal stays square. */
+.architecture-card {
+  border-radius: 8px !important;
+}
+
+.architecture-modal {
+  border-radius: 0 !important;
+}

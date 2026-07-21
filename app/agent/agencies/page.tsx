@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Check, Lock, Plug } from "lucide-react";
 import { AgencySeal, sealFor } from "@/components/agency";
+import { recordAuditEvent } from "@/lib/audit-log";
 import { useSensoryUI } from "@/lib/provider";
 
 type Agency = {
@@ -67,7 +68,7 @@ const AGENCIES: Agency[] = [
     label: "Pag-IBIG",
     name: "Pag-IBIG Fund",
     desc: "Savings, MP2 & housing loans",
-    connected: false,
+    connected: true,
     fallback: { initials: "HDMF", color: "#0f6f3c" },
   },
   {
@@ -134,10 +135,18 @@ function ConnectButton({ name }: { name: string }) {
     if (state !== "connecting") return;
     const timer = setTimeout(() => {
       setState("connected");
+      recordAuditEvent({
+        actor: "system",
+        action: "Connected government agency",
+        detail: `${name} is now available to the agent.`,
+        target: name,
+        category: "integration",
+        status: "completed",
+      });
       void playSound("notification.success");
     }, 1300 + Math.random() * 700);
     return () => clearTimeout(timer);
-  }, [playSound, state]);
+  }, [name, playSound, state]);
 
   if (state === "connected") {
     return (

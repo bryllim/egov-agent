@@ -83,7 +83,7 @@ def make_architecture_illustration(path: Path) -> None:
     detail_font = image_font(22)
     boxes = [
         (35, 12, 1145, 86, "ANY CHANNEL", "Web  ·  Viber  ·  agency app  ·  API"),
-        (35, 112, 1145, 198, "HEADLESS eGOV AGENT", "One core engine  ·  rules  ·  local AI  ·  cloud only when needed"),
+        (35, 112, 1145, 198, "HEADLESS eGOV AGENT", "One core engine  ·  rules  ·  Gemini through AI Gateway"),
         (35, 224, 1145, 310, "GOVERNMENT SERVICES", "eVerify  ·  eGovPH  ·  eGovPay  ·  agency / LGU systems"),
         (35, 336, 1145, 410, "ARTIFACTS BACK IN CHAT", "Forms  ·  cards  ·  file previews  ·  receipts"),
     ]
@@ -665,7 +665,7 @@ def build() -> None:
         doc,
         illustrations["tiers"],
         width_in=3.48,
-        alt_text="Projected request routing: 78 percent fast rules, 17 percent local AI, and 5 percent cloud AI.",
+        alt_text="Projected request routing: 78 percent fast rules, 17 percent structured workflows, and 5 percent complex AI.",
         after=1.2,
     )
     add_body(doc, "The router starts with the cheapest safe option and moves up only when confidence is low. The percentages and prices are planning assumptions for the prototype.", after=1.2)

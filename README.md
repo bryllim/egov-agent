@@ -1,36 +1,106 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# eGov Agent
 
-## Getting Started
+This application is a hybrid proof of concept:
 
-First, run the development server:
+- The AI understanding, government-service routing, response, and safe reasoning
+  summary come from Gemini through the Vercel AI SDK and AI Gateway.
+- Government agency records, payments, bookings, and document cards remain
+  simulated demo connectors.
+- Arbitrary English, Filipino, and Taglish requests are supported. Services
+  without a demo connector still receive live AI guidance and an agency route,
+  but no fake record or transaction card.
+
+## Run the POC
+
+1. Create an AI Gateway API key for local development.
+2. Copy `.env.example` to `.env.local` and set `AI_GATEWAY_API_KEY`.
+3. Install dependencies and run the app:
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+The default model and reasoning level are:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```dotenv
+AI_MODEL=google/gemini-3.6-flash
+AI_REASONING_EFFORT=low
+AI_GATEWAY_API_KEY=replace-with-your-local-gateway-key
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Vercel deployments authenticate AI Gateway through OIDC, so the production
+deployment does not need a long-lived Gateway key. The `AI_MODEL` value remains
+configurable so the application can switch models without changing the agent
+code.
 
-## Learn More
+Open [http://localhost:3000](http://localhost:3000), enter any 16-digit demo
+PhilSys number or use either demo sign-in button, then ask for any government
+service.
 
-To learn more about Next.js, take a look at the following resources:
+## How the hybrid flow works
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```mermaid
+flowchart LR
+  A[User request] --> B[Next.js API route]
+  B --> C[Gemini through AI Gateway]
+  C --> D{Known demo route?}
+  D -->|Yes| E[Simulated eGov connector]
+  D -->|No| F[Guidance-only response]
+  E --> G[Generated answer + demo card]
+  F --> G
+  G --> H[Safe routing trace in UI]
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+The AI request stays on the server side. The browser calls `/api/agent`, so it
+never receives Gateway credentials. The UI keeps the original eGov Agent
+appearance and shows the routing decision inside the existing expandable
+reasoning trace. It does not expose the model name or private chain-of-thought.
 
-## Deploy on Vercel
+## Telegram channel
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+The web chat and Telegram bot use the same headless service in
+`lib/agent/headless.ts`. Telegram only translates incoming updates into agent
+requests and converts structured cards into native chat text and quick-action
+buttons.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Add these values to `.env.local`:
+
+```dotenv
+TELEGRAM_BOT_TOKEN=replace-with-botfather-token
+TELEGRAM_WEBHOOK_SECRET_TOKEN=replace-with-a-random-secret
+TELEGRAM_BOT_USERNAME=eGovAgentBot
+APP_BASE_URL=http://localhost:3000
+```
+
+For a local demo, keep the Next.js server running and start the polling bridge
+in a second terminal:
+
+```bash
+npm run telegram:dev
+```
+
+The polling bridge forwards Telegram updates to
+`/api/webhooks/telegram`. It removes any existing Telegram webhook while it is
+running because polling and webhooks cannot be active at the same time.
+
+For production, deploy the app on a public HTTPS origin and configure Telegram
+to send updates directly to:
+
+```text
+https://your-domain.example/api/webhooks/telegram
+```
+
+Set the same `TELEGRAM_WEBHOOK_SECRET_TOKEN` as Telegram’s `secret_token`.
+The route validates Telegram’s secret header before processing an update.
+Conversation state is currently kept in bounded process memory for the demo;
+replace it with the production memory store when scaling to multiple instances.
+
+## Checks
+
+```bash
+npm run build
+npx eslint app/api/agent/route.ts app/api/webhooks/telegram/route.ts \
+  lib/agent/headless.ts lib/telegram/bot.ts lib/ai/egov-router.ts \
+  app/agent/ai-contract.ts app/agent/brain.ts
+```

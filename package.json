@@ -7,9 +7,11 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "gen-vault": "node scripts/gen-vault-pdfs.js"
+    "gen-vault": "node scripts/gen-vault-pdfs.js",
+    "telegram:dev": "node --env-file=.env.local scripts/telegram-polling.mjs"
   },
   "dependencies": {
+    "ai": "^7.0.40",
     "clsx": "^2.1.1",
     "lucide-react": "^1.23.0",
     "maplibre-gl": "^5.24.0",

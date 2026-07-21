@@ -8,6 +8,11 @@
  */
 
 import { DEMO_DATES as D } from "./dates";
+import {
+  eTravelReference,
+  hasCompleteETravelDetails,
+  type ETravelDetails,
+} from "./ai-contract";
 
 export type PrintKind =
   | "dfa-form"
@@ -19,9 +24,12 @@ export type PrintKind =
   | "sss-statement"
   | "ph-mdr"
   | "lto-form"
-  | "postal-pass";
+  | "postal-pass"
+  | "etravel-qr"
+  | "psa-request";
 
 export type PrintUser = { name: string; firstName: string; pcn: string };
+export type PrintContext = { eTravel?: ETravelDetails };
 
 export const PRINT_FILE_PREVIEWS: Record<
   PrintKind,
@@ -49,6 +57,8 @@ export const PRINT_FILE_PREVIEWS: Record<
     stampIndex: 2,
   },
   "postal-pass": { name: "Postal ID Appointment Pass.pdf", stampIndex: 3 },
+  "etravel-qr": { name: "eTravel QR Declaration.pdf", stampIndex: 1 },
+  "psa-request": { name: "PSA Certificate Request.pdf", stampIndex: 2 },
 };
 
 /* ------------------------------ overlay forms ------------------------------ */
@@ -195,6 +205,7 @@ type GeneratedSpec = {
   sections: { heading: string; fields: { label: string; value: string }[] }[];
   checks: string[];
   note: string;
+  qrLabel?: string;
 };
 
 const SEALS = {
@@ -204,9 +215,15 @@ const SEALS = {
   phlpost: { initials: "PHL", color: "#8a6d1a", fullName: "Philippine Postal Corporation" },
   lto: { initials: "LTO", color: "#005b3c", fullName: "Land Transportation Office" },
   ereport: { initials: "eR", color: "#0a4f9e", fullName: "eGov eReport" },
+  etravel: { initials: "eT", color: "#006b54", fullName: "Philippine eTravel" },
+  psa: { initials: "PSA", color: "#123f78", fullName: "Philippine Statistics Authority" },
 };
 
-function generatedSpec(kind: PrintKind, user: PrintUser): GeneratedSpec | null {
+function generatedSpec(
+  kind: PrintKind,
+  user: PrintUser,
+  context?: PrintContext
+): GeneratedSpec | null {
   const personal = [
     { label: "Full name", value: user.name },
     { label: "PhilSys card number", value: user.pcn },
@@ -291,7 +308,7 @@ function generatedSpec(kind: PrintKind, user: PrintUser): GeneratedSpec | null {
           "Digital clearance will be emailed within ~10 minutes",
           "Courier copy follows in 2–3 working days",
         ],
-        note: "Simulation eReceipt generated after eGovPay payment confirmation. No real funds were charged.",
+        note: "Electronic receipt generated after eGovPay payment confirmation. Verify using the transaction reference above.",
       };
     case "lto-receipt":
       return {
@@ -318,7 +335,7 @@ function generatedSpec(kind: PrintKind, user: PrintUser): GeneratedSpec | null {
           "Payment confirmation posted to the OGA interface",
           "Alarm lift request submitted to LTO",
         ],
-        note: "Simulation eReceipt generated after eGovPay payment confirmation. No real funds were charged.",
+        note: "Electronic receipt generated after eGovPay payment confirmation. Verify using the transaction reference above.",
       };
     case "ereport-receipt":
       return {
@@ -355,7 +372,7 @@ function generatedSpec(kind: PrintKind, user: PrintUser): GeneratedSpec | null {
           "Incident evidence and coordinates attached",
           "SMS and in-app status notifications enabled",
         ],
-        note: "Hackathon simulation only. Dispatch acknowledgements and response estimates are mock eReport data.",
+        note: "Dispatch acknowledgement generated after report submission. Response estimates are provided by the receiving desks.",
       };
     case "sss-statement":
       return {
@@ -427,26 +444,136 @@ function generatedSpec(kind: PrintKind, user: PrintUser): GeneratedSpec | null {
         ],
         note: `Scheduled around your existing DFA appointment (${D.dfaShort}). Assembled automatically from your eGov memory and document vault.`,
       };
+    case "etravel-qr": {
+      const details = context?.eTravel;
+      if (!details || !hasCompleteETravelDetails(details)) return null;
+
+      const travelerType =
+        details.direction === "arrival"
+          ? "Arriving passenger"
+          : "Departing passenger";
+      const schedule = new Date(
+        `${details.travelDate}T12:00:00`
+      ).toLocaleDateString("en-PH", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      });
+      const reference = eTravelReference(details);
+
+      return {
+        seal: SEALS.etravel,
+        formNo: "PH-eTRAVEL",
+        title: "Electronic Travel Declaration",
+        ref: reference,
+        sections: [
+          {
+            heading: "Traveler",
+            fields: [
+              { label: "Full name", value: user.name },
+              { label: "Identity", value: "Verified through eGovPH" },
+              { label: "Nationality", value: "Filipino" },
+              { label: "Traveler type", value: travelerType },
+            ],
+          },
+          {
+            heading: "Journey",
+            fields: [
+              {
+                label: "Route",
+                value: `${details.origin} → ${details.destination}`,
+              },
+              { label: "Flight", value: details.flightNumber },
+              {
+                label: "Travel schedule",
+                value: `${schedule} · ${details.travelTime}`,
+              },
+              { label: "Status", value: "Registered · QR issued" },
+            ],
+          },
+        ],
+        checks: [
+          "Declaration submitted with the user's consent",
+          "Keep this QR available before flight boarding",
+          "A new registration is required for each trip",
+        ],
+        note: "eTravel registration is free. This record contains only the data shared for this travel declaration.",
+        qrLabel: reference,
+      };
+    }
+    case "psa-request":
+      return {
+        seal: SEALS.psa,
+        formNo: "PSA-CRD-ONLINE",
+        title: "Civil Registry Document Request",
+        ref: `PSA-REQ-${D.year}-2714`,
+        sections: [
+          {
+            heading: "Request",
+            fields: [
+              { label: "Requesting party", value: user.name },
+              { label: "Document", value: "Certificate of Live Birth" },
+              { label: "Copies", value: "1" },
+              { label: "Purpose", value: "Personal record" },
+            ],
+          },
+          {
+            heading: "Fulfilment",
+            fields: [
+              { label: "Identity", value: "Verified through eGovPH" },
+              { label: "Delivery city", value: "Mandaluyong City" },
+              { label: "Agency quote", value: "Returned before payment" },
+              { label: "Status", value: "Request received" },
+            ],
+          },
+        ],
+        checks: [
+          "Identity and registered address reviewed by the user",
+          "Agency processing and delivery quote shown before payment",
+          "Status notifications enabled by SMS and email",
+        ],
+        note: "This is the request acknowledgement, not the civil-registry certificate. PSA remains the issuing authority.",
+      };
     default:
       return null;
   }
 }
 
 function generatedHTML(spec: GeneratedSpec) {
+  const escapeHTML = (value: string) =>
+    value.replace(
+      /[&<>"']/g,
+      (character) =>
+        ({
+          "&": "&amp;",
+          "<": "&lt;",
+          ">": "&gt;",
+          '"': "&quot;",
+          "'": "&#039;",
+        })[character] || character
+    );
   const generated = new Date().toLocaleString("en-PH", {
     dateStyle: "long",
     timeStyle: "short",
   });
   const fieldBox = (f: { label: string; value: string }) =>
-    `<div class="f"><div class="l">${f.label}</div><div class="v">${f.value}</div></div>`;
+    `<div class="f"><div class="l">${escapeHTML(f.label)}</div><div class="v">${escapeHTML(f.value)}</div></div>`;
   const section = (s: GeneratedSpec["sections"][number]) =>
-    `<h3 class="sec">${s.heading}</h3><div class="grid">${s.fields
+    `<h3 class="sec">${escapeHTML(s.heading)}</h3><div class="grid">${s.fields
       .map(fieldBox)
       .join("")}</div>`;
   const check = (c: string) =>
-    `<div class="check"><span class="box x"></span>${c}</div>`;
+    `<div class="check"><span class="box x"></span>${escapeHTML(c)}</div>`;
+  const qr = spec.qrLabel
+    ? `<div class="qrrow">
+        <div class="qr" aria-label="Travel QR code">
+          <span class="finder tl"></span><span class="finder tr"></span><span class="finder bl"></span>
+        </div>
+        <div><div class="qrtitle">eTravel QR</div><div class="qrref">${escapeHTML(spec.qrLabel)}</div><div class="qrhint">Present before flight boarding</div></div>
+      </div>`
+    : "";
 
-  return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${spec.title} — ${spec.ref}</title><style>
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${escapeHTML(spec.title)} — ${escapeHTML(spec.ref)}</title><style>
   * { box-sizing: border-box; margin: 0; }
   body { font-family: -apple-system, "Segoe UI", Arial, sans-serif; color: #111; padding: 44px 52px; }
   .head { display: flex; align-items: center; gap: 16px; border-bottom: 3px double #333; padding-bottom: 14px; }
@@ -472,33 +599,48 @@ function generatedHTML(spec: GeneratedSpec) {
   .barcode { margin-top: 30px; height: 42px; background: repeating-linear-gradient(90deg, #111 0 2px, transparent 2px 5px, #111 5px 6px, transparent 6px 10px); }
   .foot { margin-top: 9px; display: flex; justify-content: space-between; font-size: 9.5px; color: #666; font-family: ui-monospace, monospace; }
   .note { margin-top: 18px; font-size: 11px; color: #555; border-left: 3px solid #0a4f9e; padding: 7px 11px; background: #f7faff; }
+  .qrrow { display: flex; align-items: center; gap: 18px; margin-top: 22px; padding: 16px; background: #f4faf8; }
+  .qr { position: relative; width: 112px; height: 112px; flex: 0 0 auto; background:
+    linear-gradient(90deg, #101820 12%, transparent 12% 24%, #101820 24% 34%, transparent 34% 48%, #101820 48% 57%, transparent 57% 69%, #101820 69% 83%, transparent 83%),
+    linear-gradient(#101820 11%, transparent 11% 22%, #101820 22% 37%, transparent 37% 51%, #101820 51% 63%, transparent 63% 77%, #101820 77% 88%, transparent 88%);
+    background-color: #fff; box-shadow: inset 0 0 0 8px #fff; }
+  .finder { position: absolute; width: 30px; height: 30px; background: #101820; box-shadow: inset 0 0 0 6px #fff, inset 0 0 0 10px #101820; }
+  .finder.tl { left: 8px; top: 8px; } .finder.tr { right: 8px; top: 8px; } .finder.bl { left: 8px; bottom: 8px; }
+  .qrtitle { font-size: 15px; font-weight: 750; color: #006b54; }
+  .qrref { margin-top: 7px; font: 11px ui-monospace, monospace; color: #334155; }
+  .qrhint { margin-top: 7px; font-size: 10.5px; color: #64748b; }
   @media print { body { padding: 20px 28px; } }
   </style></head><body>
   <div class="head">
-    <div class="seal">${spec.seal.initials}</div>
+    <div class="seal">${escapeHTML(spec.seal.initials)}</div>
     <div>
       <div class="rep">Republic of the Philippines</div>
-      <div class="agency">${spec.seal.fullName}</div>
+      <div class="agency">${escapeHTML(spec.seal.fullName)}</div>
     </div>
-    <div class="formno">${spec.formNo}<br/>eGov PH · e.gov.ph</div>
+    <div class="formno">${escapeHTML(spec.formNo)}<br/>eGov PH · e.gov.ph</div>
   </div>
-  <div class="titlebar"><span class="title">${spec.title}</span><span class="ref">${spec.ref}</span></div>
+  <div class="titlebar"><span class="title">${escapeHTML(spec.title)}</span><span class="ref">${escapeHTML(spec.ref)}</span></div>
   <span class="chip">Pre-filled via eGov Agent · PhilSys verified</span>
   ${spec.sections.map(section).join("")}
+  ${qr}
   <div class="checks">${spec.checks.map(check).join("")}</div>
-  <div class="note">${spec.note}</div>
+  <div class="note">${escapeHTML(spec.note)}</div>
   <div class="sig"><div class="sigline">Signature of applicant</div><div class="sigline">Authorized officer</div></div>
   <div class="barcode"></div>
-  <div class="foot"><span>${spec.ref}</span><span>Generated ${generated}</span></div>
+  <div class="foot"><span>${escapeHTML(spec.ref)}</span><span>Generated ${escapeHTML(generated)}</span></div>
   </body></html>`;
 }
 
 /* --------------------------------- public API ------------------------------- */
 
-export function buildFormHTML(kind: PrintKind, user: PrintUser): string {
+export function buildFormHTML(
+  kind: PrintKind,
+  user: PrintUser,
+  context?: PrintContext
+): string {
   const overlay = overlaySpec(kind, user);
   if (overlay) return overlayHTML(overlay);
-  const generated = generatedSpec(kind, user);
+  const generated = generatedSpec(kind, user, context);
   if (generated) return generatedHTML(generated);
   return "";
 }

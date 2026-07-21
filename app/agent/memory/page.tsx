@@ -14,44 +14,19 @@ import {
   PencilLine,
   Users,
 } from "lucide-react";
-import { DEMO_DATES as D } from "../dates";
+import {
+  PERSONAL_CONTEXT,
+  type MemoryKind,
+} from "../personal-context";
 
-const MEMORIES: {
-  icon: React.ReactNode;
-  text: string;
-  source: string;
-}[] = [
-  {
-    icon: <MapPin size={13} />,
-    text: "Lives in Mandaluyong City — prefers appointments and offices nearby",
-    source: "Learned from conversations · Jul 2026",
-  },
-  {
-    icon: <CalendarDays size={13} />,
-    text: `Has a DFA passport renewal appointment on ${D.dfaShortYear} · 10:30 AM`,
-    source: "Booked via agent · Jul 2026",
-  },
-  {
-    icon: <Briefcase size={13} />,
-    text: "Employed — income tax filed through substituted filing",
-    source: "Synced from BIR · 2025",
-  },
-  {
-    icon: <Users size={13} />,
-    text: "Has 2 registered PhilHealth dependents",
-    source: "Synced from PhilHealth",
-  },
-  {
-    icon: <MessageCircle size={13} />,
-    text: "Prefers replies in English with a bit of Filipino",
-    source: "Learned from conversations",
-  },
-  {
-    icon: <Bell size={13} />,
-    text: "Wants SMS and email reminders for every appointment and payment",
-    source: "Learned from conversations · Jun 2026",
-  },
-];
+const MEMORY_ICONS: Record<MemoryKind, React.ReactNode> = {
+  location: <MapPin size={13} />,
+  appointment: <CalendarDays size={13} />,
+  employment: <Briefcase size={13} />,
+  dependents: <Users size={13} />,
+  language: <MessageCircle size={13} />,
+  reminders: <Bell size={13} />,
+};
 
 export default function MemoryPage() {
   const router = useRouter();
@@ -88,10 +63,10 @@ export default function MemoryPage() {
             What your agent remembers
           </h2>
           <div className="mt-4 space-y-4">
-            {MEMORIES.map((m) => (
+            {PERSONAL_CONTEXT.memories.map((m) => (
               <div key={m.text} className="flex items-start gap-3">
                 <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#f2f7ff] text-[#0a4f9e]">
-                  {m.icon}
+                  {MEMORY_ICONS[m.kind]}
                 </span>
                 <div className="min-w-0">
                   <div className="text-[14px] font-medium leading-snug text-slate-700">

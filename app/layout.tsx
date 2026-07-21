@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Plus_Jakarta_Sans, Geist_Mono } from "next/font/google";
+import { AuditTrail } from "@/components/audit-trail";
 import { SoundEffectsProvider } from "@/components/sound-effects";
 import "./globals.css";
 
@@ -30,7 +31,9 @@ export default function RootLayout({
       className={`${jakarta.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
-        <SoundEffectsProvider>{children}</SoundEffectsProvider>
+        <SoundEffectsProvider>
+          <AuditTrail>{children}</AuditTrail>
+        </SoundEffectsProvider>
       </body>
     </html>
   );

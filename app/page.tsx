@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowRight, Smartphone } from "lucide-react";
+import { recordAuditEvent } from "@/lib/audit-log";
 import { useSensoryUI } from "@/lib/provider";
 import {
   AgentMark,
@@ -54,6 +55,14 @@ export default function IntroPage() {
           pcn: pcn || DEMO_USER.pcn,
         })
       );
+      recordAuditEvent({
+        actor: "system",
+        action: "Identity verification completed",
+        detail: "The citizen session was verified before opening eGov Agent.",
+        target: "eVerify",
+        category: "security",
+        status: "completed",
+      });
       void playSound("notification.success");
       router.push("/agent");
     }, VERIFY_DURATION_MS);

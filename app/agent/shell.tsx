@@ -23,20 +23,19 @@ import {
   Menu,
   MessageCircle,
   Folder,
+  ListChecks,
   PanelLeftClose,
   PanelLeftOpen,
   SquarePen,
-  Workflow,
   X,
 } from "lucide-react";
 import { AgentMark, AgentWordmark } from "@/components/brand";
+import { PrivacyNoticeModal } from "@/components/privacy-notice-modal";
 import {
   DEMO_PROFILE,
-  RECENT_CONVERSATIONS,
   getServerSessionUserSnapshot,
   getSessionUserSnapshot,
   readDemoUser,
-  seedConversation,
   subscribeToSessionStorage,
   type Conversation,
   type User,
@@ -48,6 +47,7 @@ type AgentShellContextValue = {
   setConversations: React.Dispatch<React.SetStateAction<Conversation[]>>;
   activeConvId: string | null;
   setActiveConvId: (id: string | null) => void;
+  openPrivacyNotice: () => void;
 };
 
 const AgentShellContext = createContext<AgentShellContextValue | null>(null);
@@ -83,40 +83,29 @@ export function AgentShell({ children }: { children: React.ReactNode }) {
     getServerSessionUserSnapshot
   );
   const user = useMemo(() => readDemoUser(sessionUser), [sessionUser]);
-  const seededConversations = useMemo(
-    () =>
-      user
-        ? RECENT_CONVERSATIONS.map((title, i) => seedConversation(title, user, i))
-        : [],
-    [user]
-  );
   const [storedConversations, setStoredConversations] = useState<
     Conversation[]
   >([]);
   const conversations = useMemo(
-    () =>
-      normalizeConversationIds(
-        storedConversations.length ? storedConversations : seededConversations
-      ),
-    [seededConversations, storedConversations]
+    () => normalizeConversationIds(storedConversations),
+    [storedConversations]
   );
   const setConversations: React.Dispatch<
     React.SetStateAction<Conversation[]>
   > = useCallback(
     (value) => {
       setStoredConversations((current) => {
-        const base = normalizeConversationIds(
-          current.length ? current : seededConversations
-        );
+        const base = normalizeConversationIds(current);
         const next = typeof value === "function" ? value(base) : value;
         return normalizeConversationIds(next);
       });
     },
-    [seededConversations]
+    []
   );
   const [activeConvId, setActiveConvId] = useState<string | null>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [privacyNoticeOpen, setPrivacyNoticeOpen] = useState(false);
 
   useEffect(() => {
     if (!readDemoUser(sessionStorage.getItem("egov-user"))) {
@@ -160,6 +149,15 @@ export function AgentShell({ children }: { children: React.ReactNode }) {
     router.push("/");
   };
 
+  const openPrivacyNotice = useCallback(() => {
+    setMobileSidebarOpen(false);
+    setPrivacyNoticeOpen(true);
+  }, []);
+  const closePrivacyNotice = useCallback(
+    () => setPrivacyNoticeOpen(false),
+    [],
+  );
+
   if (!user) return null;
 
   return (
@@ -170,19 +168,30 @@ export function AgentShell({ children }: { children: React.ReactNode }) {
         setConversations,
         activeConvId,
         setActiveConvId,
+        openPrivacyNotice,
       }}
     >
-      <main className="relative flex h-dvh overflow-hidden bg-[#f7faff] text-slate-900">
-        <button
-          type="button"
-          onClick={() => setMobileSidebarOpen(true)}
-          aria-label="Open menu"
-          aria-expanded={mobileSidebarOpen}
-          aria-controls="mobile-agent-sidebar"
-          className="fixed right-4 top-4 z-30 flex h-11 w-11 cursor-pointer items-center justify-center rounded-2xl border border-slate-200/80 bg-white/95 text-slate-600 shadow-[0_14px_30px_rgba(11,22,36,0.12)] backdrop-blur transition hover:border-[#0a4f9e]/30 hover:text-[#0a4f9e] sm:hidden"
+      <main
+        aria-hidden={privacyNoticeOpen || undefined}
+        inert={privacyNoticeOpen ? true : undefined}
+        className="relative flex h-dvh overflow-hidden bg-[#f7faff] text-slate-900"
+      >
+        <header
+          aria-label="Mobile app header"
+          className="absolute inset-x-0 top-0 z-30 flex h-16 items-center justify-between bg-white/92 px-4 shadow-[0_1px_0_oklch(0_0_0/0.05),0_10px_24px_-22px_rgba(6,61,125,0.45)] backdrop-blur-xl sm:hidden"
         >
-          <Menu size={20} />
-        </button>
+          <AgentWordmark size={30} />
+          <button
+            type="button"
+            onClick={() => setMobileSidebarOpen(true)}
+            aria-label="Open menu"
+            aria-expanded={mobileSidebarOpen}
+            aria-controls="mobile-agent-sidebar"
+            className="flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-xl bg-[#f3f7fc] text-slate-600 transition-[background-color,color,transform] duration-150 hover:bg-[#eaf2fc] hover:text-[#0a4f9e] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0a4f9e]/30 active:scale-[0.96]"
+          >
+            <Menu size={20} strokeWidth={2.2} />
+          </button>
+        </header>
 
         <button
           type="button"
@@ -243,8 +252,13 @@ export function AgentShell({ children }: { children: React.ReactNode }) {
           />
         </aside>
 
-        <section className="flex min-w-0 flex-1 flex-col">{children}</section>
+        <section className="flex min-w-0 flex-1 flex-col pt-16 sm:pt-0">
+          {children}
+        </section>
       </main>
+      {privacyNoticeOpen && (
+        <PrivacyNoticeModal onClose={closePrivacyNotice} />
+      )}
     </AgentShellContext.Provider>
   );
 }
@@ -354,11 +368,11 @@ function SidebarContent({
           onClick={() => onNavigate("/agent/vault")}
         />
         <SidebarNavButton
-          active={pathname.startsWith("/agent/how-it-works")}
+          active={pathname.startsWith("/agent/logs")}
           expanded={expanded}
-          icon={<Workflow size={18} />}
-          label="How it works"
-          onClick={() => onNavigate("/agent/how-it-works")}
+          icon={<ListChecks size={18} />}
+          label="Logs"
+          onClick={() => onNavigate("/agent/logs")}
         />
         <div className="my-5 h-px bg-slate-200/70" />
         <RecentConversations
@@ -372,6 +386,7 @@ function SidebarContent({
       <div className="mt-4 shrink-0 space-y-3">
         <button
           type="button"
+          data-audit="Opened profile"
           aria-label="View profile"
           title="View profile"
           onClick={() => onNavigate("/agent/profile")}
@@ -439,6 +454,7 @@ function SidebarNavButton({
   return (
     <button
       type="button"
+      data-audit={`Opened ${label}`}
       title={label}
       onClick={onClick}
       aria-current={active ? "page" : undefined}
@@ -552,6 +568,7 @@ function SidebarControlButton({
   return (
     <button
       type="button"
+      data-audit={danger ? "Signed out" : label}
       onClick={onClick}
       title={label}
       className={`flex h-11 w-full cursor-pointer items-center justify-center rounded-2xl text-[14px] font-medium transition-all duration-200 ${

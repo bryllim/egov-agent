@@ -26,7 +26,6 @@ import {
   Settings,
   ShieldCheck,
   Smile,
-  Sparkles,
   UserRound,
   UsersRound,
   Video,
@@ -331,7 +330,7 @@ function HelpCard({ onSelect }: { onSelect: (text: string) => void }) {
     <div className="w-full overflow-hidden rounded-[18px] bg-[oklch(0.23_0.012_294)] shadow-[0_8px_30px_oklch(0_0_0/0.34),0_1px_2px_oklch(0_0_0/0.28)] outline outline-1 outline-white/10">
       <div className="px-5 pb-3 pt-4">
         <div className="flex items-center gap-2 text-[14px] font-semibold text-[oklch(0.94_0.008_294)]">
-          <Sparkles size={17} className="text-[oklch(0.75_0.17_294)]" />
+          <Menu size={17} className="text-[oklch(0.75_0.17_294)]" />
           Popular services
         </div>
       </div>

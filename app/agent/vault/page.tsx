@@ -10,7 +10,12 @@ import {
   Upload,
 } from "lucide-react";
 import { VAULT_FILES } from "../brain";
+import {
+  PERSONAL_CONTEXT,
+  type VaultDocumentKey,
+} from "../personal-context";
 import { VaultFileStamp } from "@/components/vault-file-stamp";
+import { recordAuditEvent } from "@/lib/audit-log";
 import { useSensoryUI } from "@/lib/provider";
 
 type VaultDoc = {
@@ -23,43 +28,24 @@ type VaultDoc = {
   usedFor?: string;
 };
 
-const INITIAL_DOCS: VaultDoc[] = [
-  {
-    name: VAULT_FILES.birthCert.name,
-    href: VAULT_FILES.birthCert.href,
-    preview: VAULT_FILES.birthCert.preview,
-    size: "203 KB",
-    added: "Added Aug 2023",
-    tag: "PSA-verified",
-    usedFor: "Postal ID",
-  },
-  {
-    name: VAULT_FILES.meralco.name,
-    href: VAULT_FILES.meralco.href,
-    preview: VAULT_FILES.meralco.preview,
-    size: "480 KB",
-    added: "Added Jun 2026",
-    tag: "Encrypted",
-    usedFor: "Postal ID",
-  },
-  {
-    name: VAULT_FILES.photo.name,
-    href: VAULT_FILES.photo.href,
-    preview: VAULT_FILES.photo.preview,
-    size: "119 KB",
-    added: "Added Jun 2026",
-    tag: "Encrypted",
-    usedFor: "Postal ID",
-  },
-  {
-    name: VAULT_FILES.brgyClearance.name,
-    href: VAULT_FILES.brgyClearance.href,
-    preview: VAULT_FILES.brgyClearance.preview,
-    size: "320 KB",
-    added: "Added Feb 2026",
-    tag: "Encrypted",
-  },
-];
+const VAULT_FILE_BY_KEY: Record<
+  VaultDocumentKey,
+  (typeof VAULT_FILES)[VaultDocumentKey]
+> = VAULT_FILES;
+
+const INITIAL_DOCS: VaultDoc[] = PERSONAL_CONTEXT.vault.map((document) => {
+  const file = VAULT_FILE_BY_KEY[document.key];
+
+  return {
+    name: document.name,
+    href: file.href,
+    preview: file.preview,
+    size: document.size,
+    added: document.added,
+    tag: document.status,
+    usedFor: document.usableFor[0],
+  };
+});
 
 function formatSize(bytes: number) {
   if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
@@ -155,6 +141,7 @@ function DocRow({ doc, index }: { doc: VaultDoc; index: number }) {
     return (
       <a
         href={doc.href}
+        data-audit="Opened a Personal Vault document"
         target="_blank"
         rel="noreferrer"
         className="group animate-step-in flex min-h-[88px] cursor-pointer items-center gap-3 rounded-2xl px-3 py-2 transition-[background-color,box-shadow,transform] duration-200 hover:bg-white hover:shadow-[0_12px_30px_-18px_rgba(6,61,125,0.35)] focus-visible:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0a4f9e]/25 active:scale-[0.99] sm:gap-4"
@@ -188,7 +175,18 @@ export default function VaultPage() {
       tag: "Encrypted" as const,
     }));
     setDocs((prev) => [...added, ...prev]);
-    setUsedBytes((prev) => prev + files.reduce((sum, f) => sum + f.size, 0));
+    const totalBytes = files.reduce((sum, file) => sum + file.size, 0);
+    setUsedBytes((prev) => prev + totalBytes);
+    recordAuditEvent({
+      actor: "user",
+      action: "Added documents to Personal Vault",
+      detail: `${files.length} document${
+        files.length === 1 ? "" : "s"
+      } added · ${formatSize(totalBytes)}. File names were excluded from the audit log.`,
+      target: "Personal Vault",
+      category: "data",
+      status: "completed",
+    });
     void playSound("notification.success");
   };
 
@@ -213,9 +211,8 @@ export default function VaultPage() {
           <div>
             <h1 className="text-[24px] font-semibold tracking-tight">Vault</h1>
             <p className="mt-1.5 max-w-xl text-[14px] leading-relaxed text-slate-500">
-              Your personal documents, encrypted and ready. When a transaction
-              needs one — like your Postal ID application — the agent attaches
-              it for you and links it in the chat.
+              Your personal documents, encrypted and ready. The agent only
+              attaches a file after you approve it, then links it in the chat.
             </p>
           </div>
           <button

@@ -1,8 +1,10 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowUp,
+  Briefcase,
   CalendarDays,
   Check,
   ChevronDown,
@@ -30,6 +32,7 @@ import {
 import { AgentMark } from "@/components/brand";
 import { AgencySeal, sealFor } from "@/components/agency";
 import { VaultFileStamp } from "@/components/vault-file-stamp";
+import { recordAuditEvent } from "@/lib/audit-log";
 import { useSensoryUI } from "@/lib/provider";
 import {
   Map as SiteMap,
@@ -39,20 +42,21 @@ import {
   MarkerPopup,
   MarkerTooltip,
 } from "@/components/ui/map";
-import { PRINT_FILE_PREVIEWS, previewForm, type PrintKind } from "./forms";
 import { useAgentShell } from "./shell";
-import { DEMO_DATES as D } from "./dates";
 import {
-  agentPlan,
-  THINKING_DELAY_MS,
   type AgentActivity,
   type Card,
   type Msg,
+  type Plan,
   type StepIcon,
   type TraceStep,
-  type User,
   type UserUpload,
 } from "./brain";
+
+type AgentApiResponse = {
+  plan: Plan;
+  suggestedActions: string[];
+};
 
 function latestMessageId(messages: Msg[]) {
   return messages.reduce((latest, message) => Math.max(latest, message.id), 0);
@@ -83,6 +87,7 @@ function ComposerUploadStamp({
       />
       <button
         type="button"
+        data-audit="Removed an attachment"
         aria-label={`Remove ${upload.name}`}
         title={`Remove ${upload.name}`}
         onClick={onRemove}
@@ -92,6 +97,38 @@ function ComposerUploadStamp({
           <X size={12} />
         </span>
       </button>
+    </div>
+  );
+}
+
+function QuickActions({
+  actions,
+  disabled,
+  onAction,
+}: {
+  actions: string[];
+  disabled: boolean;
+  onAction: (action: string) => void;
+}) {
+  if (actions.length === 0) return null;
+
+  return (
+    <div className="animate-fade-in pt-1" aria-label="Quick actions">
+      <div className="flex flex-wrap gap-2">
+        {actions.map((action, index) => (
+          <button
+            key={action}
+            type="button"
+            disabled={disabled}
+            onClick={() => onAction(action)}
+            style={{ animationDelay: `${index * 70}ms` }}
+            className="animate-card-in flex min-h-11 cursor-pointer items-center gap-2 rounded-xl bg-[#0a4f9e] pl-3.5 pr-3 text-left text-[12.5px] font-semibold text-white shadow-[0_9px_20px_-13px_rgba(6,61,125,0.72)] transition-[background-color,box-shadow,transform] duration-150 ease-out hover:bg-[#063d7d] hover:shadow-[0_12px_24px_-13px_rgba(6,61,125,0.82)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0a4f9e]/35 active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-45 disabled:shadow-none disabled:active:scale-100"
+          >
+            <span>{action}</span>
+            <ChevronRight size={14} className="shrink-0" />
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
@@ -106,6 +143,7 @@ export default function AgentPage() {
     setConversations,
     activeConvId,
     setActiveConvId,
+    openPrivacyNotice,
   } = useAgentShell();
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
@@ -113,7 +151,6 @@ export default function AgentPage() {
   const [streamingId, setStreamingId] = useState<number | null>(null);
   const [listening, setListening] = useState(false);
   const [pendingUploads, setPendingUploads] = useState<UserUpload[]>([]);
-  const [showGuide, setShowGuide] = useState(false);
   const idRef = useRef(0);
   const lastHandledConvRef = useRef<string | null | undefined>(undefined);
   const chatViewportRef = useRef<HTMLDivElement>(null);
@@ -122,6 +159,7 @@ export default function AgentPage() {
   const imageInputRef = useRef<HTMLInputElement>(null);
   const scrollFrameRef = useRef<number | null>(null);
   const agentTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const agentRequestRef = useRef<AbortController | null>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const recognitionRef = useRef<any>(null);
 
@@ -132,7 +170,13 @@ export default function AgentPage() {
     agentTimersRef.current = [];
   }, []);
 
-  useEffect(() => clearAgentTimers, [clearAgentTimers]);
+  useEffect(
+    () => () => {
+      clearAgentTimers();
+      agentRequestRef.current?.abort();
+    },
+    [clearAgentTimers]
+  );
 
   const scrollToBottom = useCallback((behavior: ScrollBehavior = "smooth") => {
     if (scrollFrameRef.current !== null) {
@@ -167,6 +211,8 @@ export default function AgentPage() {
     if (lastHandledConvRef.current === activeConvId) return;
     lastHandledConvRef.current = activeConvId;
     clearAgentTimers();
+    agentRequestRef.current?.abort();
+    agentRequestRef.current = null;
     setAgentProgress(null);
     setStreamingId(null);
     setInput("");
@@ -196,7 +242,7 @@ export default function AgentPage() {
   }, [scrollToBottom]);
 
   const send = useCallback(
-    (raw?: string, uploads: UserUpload[] = []) => {
+    async (raw?: string, uploads: UserUpload[] = []) => {
       const typedText = (raw ?? input).trim();
       if ((!typedText && uploads.length === 0) || !user || busy) return;
 
@@ -212,6 +258,8 @@ export default function AgentPage() {
         : text;
 
       clearAgentTimers();
+      const requestController = new AbortController();
+      agentRequestRef.current = requestController;
       setInput("");
       setPendingUploads([]);
       if (activeConvId === null) {
@@ -231,35 +279,20 @@ export default function AgentPage() {
           uploads: uploads.length ? uploads : undefined,
         },
       ]);
+      recordAuditEvent({
+        actor: "user",
+        action: "Submitted a government service request",
+        detail:
+          uploads.length > 0
+            ? `Request included ${uploads.length} attachment${
+                uploads.length === 1 ? "" : "s"
+              }. Message contents were excluded from the audit log.`
+            : "Message contents were excluded from the audit log.",
+        category: "service",
+        status: "completed",
+      });
 
-      const plan = agentPlan(planInput, user);
       const startedAt = Date.now();
-      const steps = plan.steps.map((s) => ({
-        ...s,
-        base: Math.round(s.base * 2 + Math.random() * 800),
-      }));
-
-      const deliver = () => {
-        const elapsed = `${((Date.now() - startedAt) / 1000).toFixed(1)}s`;
-        const id = ++idRef.current;
-        setAgentProgress(null);
-        setMessages((m) => [
-          ...m,
-          {
-            id,
-            role: "agent",
-            text: plan.text,
-            card: plan.card,
-            trace: steps.length ? steps : undefined,
-            elapsed: steps.length ? elapsed : undefined,
-            attachments: plan.attachments,
-          },
-        ]);
-        setStreamingId(id);
-        void playSound("notification.info");
-        agentTimersRef.current = [];
-      };
-
       setAgentProgress({
         steps: [],
         currentIndex: 0,
@@ -267,7 +300,79 @@ export default function AgentPage() {
         phase: "thinking",
       });
 
-      const startWork = () => {
+      try {
+        const response = await fetch("/api/agent", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            message: planInput,
+            history: messages.slice(-10).map((message) => ({
+              role: message.role === "agent" ? "assistant" : "user",
+              text: message.text,
+            })),
+            user: {
+              name: user.name,
+              firstName: user.firstName,
+            },
+          }),
+          signal: requestController.signal,
+        });
+        const payload = (await response.json().catch(() => null)) as
+          | AgentApiResponse
+          | { error?: string }
+          | null;
+
+        if (!response.ok || !payload || !("plan" in payload)) {
+          throw new Error(
+            payload && "error" in payload && payload.error
+              ? payload.error
+              : `The live AI request failed with HTTP ${response.status}.`
+          );
+        }
+        if (requestController.signal.aborted) return;
+
+        const { plan, suggestedActions } = payload;
+        const steps = plan.steps.map((traceStep) => ({
+          ...traceStep,
+          base: Math.round(traceStep.base + Math.random() * 120),
+        }));
+        const deliver = () => {
+          const elapsed = `${((Date.now() - startedAt) / 1000).toFixed(1)}s`;
+          const routingStep = steps.find((traceStep) =>
+            traceStep.label.toLowerCase().startsWith("routing to"),
+          );
+          const id = ++idRef.current;
+          setAgentProgress(null);
+          setMessages((current) => [
+            ...current,
+            {
+              id,
+              role: "agent",
+              text: plan.text,
+              quickActions: suggestedActions,
+              card: plan.card,
+              trace: steps.length ? steps : undefined,
+              elapsed: steps.length ? elapsed : undefined,
+              attachments: plan.attachments,
+            },
+          ]);
+          setStreamingId(id);
+          recordAuditEvent({
+            actor: "agent",
+            action: "Returned a government service response",
+            detail: plan.card
+              ? `Generated a ${plan.card.kind} result after ${elapsed}.`
+              : `Completed the request after ${elapsed}.`,
+            target: routingStep?.agency,
+            category: "service",
+            status: "completed",
+          });
+          void playSound("notification.info");
+          agentTimersRef.current = [];
+        };
+
         if (steps.length === 0) {
           setAgentProgress({
             steps: [],
@@ -292,6 +397,15 @@ export default function AgentPage() {
           agentTimersRef.current.push(
             setTimeout(
               () => {
+                recordAuditEvent({
+                  actor: "agent",
+                  action: step.label,
+                  detail:
+                    "Workflow step completed. Sensitive result values were excluded from the audit log.",
+                  target: step.agency,
+                  category: "service",
+                  status: "completed",
+                });
                 void playSound(
                   index === steps.length - 1
                     ? "interaction.confirm"
@@ -308,15 +422,39 @@ export default function AgentPage() {
         agentTimersRef.current.push(
           setTimeout(deliver, elapsed + 1100)
         );
-      };
+      } catch {
+        if (requestController.signal.aborted) return;
 
-      agentTimersRef.current.push(setTimeout(startWork, THINKING_DELAY_MS));
+        setAgentProgress(null);
+        setMessages((current) => [
+          ...current,
+          {
+            id: ++idRef.current,
+            role: "agent",
+            text: "I couldn’t complete that request right now. **Please try again in a moment.**",
+          },
+        ]);
+        recordAuditEvent({
+          actor: "agent",
+          action: "Government service request failed",
+          detail:
+            "The request could not be completed. Message contents were excluded from the audit log.",
+          category: "service",
+          status: "failed",
+        });
+        void playSound("notification.error");
+      } finally {
+        if (agentRequestRef.current === requestController) {
+          agentRequestRef.current = null;
+        }
+      }
     },
     [
       activeConvId,
       busy,
       clearAgentTimers,
       input,
+      messages,
       playSound,
       setActiveConvId,
       setConversations,
@@ -351,7 +489,7 @@ export default function AgentPage() {
   const submitComposer = useCallback(() => {
     if ((!input.trim() && pendingUploads.length === 0) || busy) return;
     void playSound("interaction.confirm");
-    send(undefined, pendingUploads);
+    void send(undefined, pendingUploads);
   }, [busy, input, pendingUploads, playSound, send]);
 
   const sendRef = useRef(send);
@@ -386,7 +524,7 @@ export default function AgentPage() {
       if (e.results[e.results.length - 1].isFinal) {
         setListening(false);
         void playSound("interaction.confirm");
-        sendRef.current(transcript);
+        void sendRef.current(transcript);
       }
     };
     rec.onend = () => setListening(false);
@@ -516,13 +654,18 @@ export default function AgentPage() {
                       )}
                       {m.card && m.id !== streamingId && (
                         <div className="animate-card-in">
-                          <ServiceCard
-                            card={m.card}
-                            user={user}
-                            onIntent={send}
-                          />
+                          <ServiceCard card={m.card} />
                         </div>
                       )}
+                      {m.quickActions &&
+                        m.quickActions.length > 0 &&
+                        m.id !== streamingId && (
+                          <QuickActions
+                            actions={m.quickActions}
+                            disabled={busy}
+                            onAction={send}
+                          />
+                        )}
                       {m.id !== streamingId && (
                         <div className="animate-fade-in -ml-2 pt-0.5">
                           <CopyButton text={m.text} />
@@ -645,6 +788,7 @@ export default function AgentPage() {
             <button
               type="button"
               onClick={submitComposer}
+              data-audit="none"
               title="Submit message"
               aria-label="Submit message"
               disabled={busy || (!input.trim() && pendingUploads.length === 0)}
@@ -655,9 +799,6 @@ export default function AgentPage() {
           </div>
         </div>
         <div className="mx-auto mt-3 flex max-w-2xl flex-wrap items-center justify-center gap-x-4 gap-y-2 text-[12px] text-slate-400">
-          <span className="font-pixel text-[9px] uppercase tracking-[0.18em]">
-            eGovPH Support
-          </span>
           <a
             href="mailto:support@e.gov.ph"
             className="inline-flex cursor-pointer items-center gap-1.5 transition hover:text-[#0a4f9e]"
@@ -674,18 +815,24 @@ export default function AgentPage() {
           </a>
           <button
             type="button"
-            onClick={() => setShowGuide(true)}
+            onClick={openPrivacyNotice}
+            data-audit="Opened data and privacy notice"
             data-sound="overlay.open"
-            title="Demo guide"
-            aria-label="Open demo guide"
-            className="hairline flex h-6 w-6 cursor-pointer items-center justify-center rounded-full bg-white text-slate-400 transition hover:border-[#0a4f9e]/40 hover:text-[#0a4f9e]"
+            className="inline-flex min-h-10 cursor-pointer items-center px-1 text-[12px] font-bold text-slate-400 transition-colors duration-150 hover:text-[#0a4f9e] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0a4f9e]/30"
           >
-            <HelpCircle size={13} />
+            Data &amp; Privacy
           </button>
+          <Link
+            href="/agent/how-it-works"
+            data-audit="Opened How it works"
+            title="How it works"
+            aria-label="Open how it works"
+            className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-full text-slate-400 transition-[background-color,color,transform] duration-150 hover:bg-white hover:text-[#0a4f9e] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0a4f9e]/30 active:scale-[0.96]"
+          >
+            <HelpCircle size={13} strokeWidth={2.6} />
+          </Link>
         </div>
       </div>
-
-      <DemoGuideModal open={showGuide} onClose={() => setShowGuide(false)} />
     </>
   );
 }
@@ -766,7 +913,7 @@ function TraceStepRow({
         {active ? (
           <div className="mt-1 text-[12.5px] text-slate-300">Working…</div>
         ) : (
-          <div className="animate-result-in mt-1 truncate text-[12.5px] text-slate-400">
+          <div className="animate-result-in mt-1 line-clamp-2 text-pretty text-[12.5px] leading-relaxed text-slate-400">
             {step.result}
           </div>
         )}
@@ -860,357 +1007,6 @@ function TraceSummary({
           ))}
         </div>
       )}
-    </div>
-  );
-}
-
-/* ------------------------------- demo guide -------------------------------- */
-
-function TypeThis({ children }: { children: React.ReactNode }) {
-  return (
-    <code className="rounded-md bg-[#0a4f9e]/10 px-1.5 py-0.5 font-mono text-[12px] font-semibold text-[#0a4f9e]">
-      {children}
-    </code>
-  );
-}
-
-function GuideStep({
-  n,
-  children,
-}: {
-  n: number;
-  children: React.ReactNode;
-}) {
-  return (
-    <li className="flex gap-3 text-[13.5px] leading-relaxed text-slate-600">
-      <span className="bg-brand-gradient mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10.5px] font-bold text-white">
-        {n}
-      </span>
-      <span className="min-w-0">{children}</span>
-    </li>
-  );
-}
-
-function GuideHeading({ children }: { children: React.ReactNode }) {
-  return (
-    <h3 className="font-pixel mb-3 mt-6 text-[10px] uppercase tracking-[0.18em] text-[#0a4f9e] first:mt-0">
-      {children}
-    </h3>
-  );
-}
-
-function ScenarioCard({
-  phrase,
-  result,
-  chain,
-}: {
-  phrase: string;
-  result: string;
-  chain?: string;
-}) {
-  return (
-    <div className="rounded-xl bg-slate-50/80 p-3.5">
-      <TypeThis>{phrase}</TypeThis>
-      <p className="mt-2 text-[12px] leading-relaxed text-slate-500">
-        {result}
-      </p>
-      {chain && (
-        <p className="mt-1.5 text-[12px] leading-relaxed text-slate-600">
-          <span className="font-semibold text-[#0a4f9e]">Then:</span> {chain}
-        </p>
-      )}
-    </div>
-  );
-}
-
-function DemoGuideModal({
-  open,
-  onClose,
-}: {
-  open: boolean;
-  onClose: () => void;
-}) {
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [open, onClose]);
-
-  if (!open) return null;
-
-  return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-label="Demo guide"
-      onClick={onClose}
-      className="animate-fade-in fixed inset-0 z-50 flex items-center justify-center bg-slate-900/45 p-4 backdrop-blur-sm"
-    >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        className="animate-bubble-in scrollbar-subtle max-h-[88vh] w-full max-w-4xl overflow-y-auto rounded-3xl bg-white p-7 shadow-2xl"
-      >
-        <div className="flex items-center gap-3">
-          <AgentMark size={30} />
-          <div>
-            <div className="text-[16px] font-semibold">Demo playbook</div>
-            <div className="text-[12.5px] text-slate-400">
-              ~3 minutes · follow it top to bottom
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close demo guide"
-            data-sound="overlay.close"
-            className="ml-auto flex h-8 w-8 cursor-pointer items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
-          >
-            <X size={16} />
-          </button>
-        </div>
-
-        <div className="mt-5">
-          <GuideHeading>The one-liner</GuideHeading>
-          <p className="max-w-2xl text-[13.5px] leading-relaxed text-slate-600">
-            &ldquo;One PhilSys login, one conversation — and an AI agent
-            transacts with 34 government agencies for you: it verifies, books,
-            pays, and hands you preview-ready documents.&rdquo;
-          </p>
-
-          <div className="mt-4 bg-[linear-gradient(135deg,#eef6ff,#f0fdfa)] px-4 py-4 shadow-[0_0_0_1px_oklch(0_0_0/0.05),0_10px_30px_-24px_rgba(6,61,125,0.5)]">
-            <div className="flex items-center gap-2 text-[#0a4f9e]">
-              <Zap size={15} />
-              <span className="font-pixel text-[9px] uppercase tracking-[0.16em]">
-                New wow flow — eReport
-              </span>
-            </div>
-            <p className="mt-2 text-[12.5px] leading-relaxed text-slate-600">
-              Optionally attach any flooding photo, then type{" "}
-              <TypeThis>
-                There&apos;s severe flooding on Pioneer Street near Reliance in
-                Mandaluyong. File an eReport and alert the right responders.
-              </TypeThis>
-            </p>
-            <p className="mt-2 text-[11.5px] leading-relaxed text-slate-500">
-              Let the AI triage and four-agency routing land, click{" "}
-              <strong>Submit eReport to 4 response desks</strong>, then open the
-              issued acknowledgement stamp.
-            </p>
-          </div>
-
-          <div className="grid gap-x-8 sm:grid-cols-2">
-            <div>
-              <GuideHeading>Act 1 — The hero flow (~90s)</GuideHeading>
-              <ol className="space-y-2.5">
-                <GuideStep n={1}>
-                  Type <TypeThis>Find the nearest DFA office</TypeThis>. While
-                  the timeline runs, narrate it: &ldquo;PhilSys verified me, PSA
-                  located my address, DFA returned live slots — I never filled a
-                  form.&rdquo; A real map of passport sites appears — point at
-                  the pulsing recommended pin, hover the others.
-                </GuideStep>
-                <GuideStep n={2}>
-                  When the reply streams in, click{" "}
-                  <TypeThis>Completed 4 steps…</TypeThis> to expand the audit
-                  trail — &ldquo;every action is logged and consented.&rdquo;
-                </GuideStep>
-                <GuideStep n={3}>
-                  Click{" "}
-                  <TypeThis>{`Book Megamall · ${D.dfaShort}, 10:30 AM`}</TypeThis>{" "}
-                  under the map — the agent books it end-to-end: reference
-                  number, email, SMS, calendar.
-                </GuideStep>
-                <GuideStep n={4}>
-                  <strong>Wow moment:</strong> click{" "}
-                  <TypeThis>Preview appointment pass</TypeThis> — a pre-filled
-                  government document opens in a new preview tab. Pause and let
-                  it land.
-                </GuideStep>
-              </ol>
-
-              <GuideHeading>Act 2 — Breadth (~60s)</GuideHeading>
-              <ol className="space-y-2.5">
-                <GuideStep n={5}>
-                  Click <TypeThis>New conversation</TypeThis>, type{" "}
-                  <TypeThis>Get an NBI clearance</TypeThis>, then click{" "}
-                  <TypeThis>Continue with eGovPay</TypeThis>, review the
-                  checkout, and authorize the demo payment. Open the issued
-                  e-receipt stamp too.
-                </GuideStep>
-                <GuideStep n={6}>
-                  New conversation →{" "}
-                  <TypeThis>Check my SSS contributions</TypeThis> → point at the
-                  live data card →{" "}
-                  <TypeThis>Preview contribution statement</TypeThis>.
-                </GuideStep>
-                <GuideStep n={7}>
-                  New conversation → <TypeThis>PhilHealth member record</TypeThis>{" "}
-                  → click <TypeThis>Email certified MDR</TypeThis> — digitally
-                  signed and QR-verifiable.
-                </GuideStep>
-              </ol>
-            </div>
-
-            <div>
-              <GuideHeading>Act 3 — LTO violation alarm (~45s)</GuideHeading>
-              <ol className="space-y-2.5">
-                <GuideStep n={8}>
-                  New conversation →{" "}
-                  <TypeThis>Check if I have any LTO violations</TypeThis>. Let
-                  the <TypeThis>Thinking...</TypeThis> loader breathe before the
-                  LTO/OGA trace appears.
-                </GuideStep>
-                <GuideStep n={9}>
-                  Open <TypeThis>Completed 4 steps…</TypeThis> and call out the
-                  OGA alarm: LTO transactions are blocked until the case is
-                  settled.
-                </GuideStep>
-                <GuideStep n={10}>
-                  Point at the case card:{" "}
-                  <TypeThis>TRX-LETAS-260210-4507860</TypeThis>,{" "}
-                  <TypeThis>5.STS-8 Obstruction</TypeThis>, status{" "}
-                  <TypeThis>PENDING</TypeThis>, source <TypeThis>OGA</TypeThis>.
-                  Click <TypeThis>Proceed to Payment</TypeThis>, authorize the
-                  demo checkout, then open the issued LTO e-receipt stamp.
-                </GuideStep>
-              </ol>
-
-              <GuideHeading>Act 4 — Polish (~30s)</GuideHeading>
-              <ol className="space-y-2.5">
-                <GuideStep n={11}>
-                  Show the sidebar: every chat is saved and highlighted — click
-                  an older one to jump back with its full transcript.
-                </GuideStep>
-                <GuideStep n={12}>
-                  Tap the mic and say{" "}
-                  <TypeThis>Renew my driver&apos;s license</TypeThis> — voice
-                  works.
-                </GuideStep>
-                <GuideStep n={13}>
-                  End with <TypeThis>Salamat!</TypeThis> — the agent replies in
-                  Taglish. Mention the copy button under every reply.
-                </GuideStep>
-              </ol>
-            </div>
-          </div>
-
-          <GuideHeading>
-            Scenario library — everything you can type
-          </GuideHeading>
-          <div className="grid gap-2.5 sm:grid-cols-2">
-            <ScenarioCard
-              phrase="There's severe flooding on Pioneer Street near Reliance in Mandaluyong. File an eReport and alert the right responders."
-              result="AI incident triage + evidence analysis + exact jurisdiction resolution, followed by one coordinated draft for CDRRMO, the barangay, MMDA, and DPWH."
-              chain="Submit eReport to 4 response desks → live dispatch statuses → mock 15–20 minute assessment ETA → open the acknowledgement stamp."
-            />
-            <ScenarioCard
-              phrase="Find the nearest DFA office"
-              result="4-agency run (PhilSys → PSA → DFA → rank), then a live map of 5 passport sites with your location and the recommended pin."
-              chain={`Book Megamall · ${D.dfaShort}, 10:30 AM → booking confirmation → Preview appointment pass.`}
-            />
-            <ScenarioCard
-              phrase="Renew my passport"
-              result="DFA eligibility check + earliest-slot appointment card."
-              chain="Confirm this slot → booked with email/SMS/calendar. Preview pre-filled application → the REAL DFA form, filled out."
-            />
-            <ScenarioCard
-              phrase="Get an NBI clearance"
-              result="Fully-online checklist: biometrics on file, purpose, fees."
-              chain="Continue with eGovPay → review checkout → authorize → open the issued e-receipt stamp."
-            />
-            <ScenarioCard
-              phrase="Check my SSS contributions"
-              result="Live contribution table — monthly postings, ₱142,470 total, 87 months."
-              chain="Preview contribution statement."
-            />
-            <ScenarioCard
-              phrase="PhilHealth member record"
-              result="Member Data Record card: PIN, member type, dependents, premium status."
-              chain="Email certified MDR → issued + sent → Preview MDR copy → the REAL PhilHealth PMRF, filled out."
-            />
-            <ScenarioCard
-              phrase="Renew my driver's license"
-              result="LTO renewal checklist — license on file, no violations, CDE exam required."
-              chain="Start CDE exam → enrolled + link emailed → Preview renewal application → the REAL LTO Form 21, filled out."
-            />
-            <ScenarioCard
-              phrase="Check if I have any LTO violations"
-              result="OGA alarm case card — TRX-LETAS case no., 5.STS-8 Obstruction, PENDING, all LTO transactions blocked."
-              chain="Proceed to Payment → authorize checkout → issued e-receipt + alarm-lift request."
-            />
-            <ScenarioCard
-              phrase="Apply for a Postal ID"
-              result={`The memory flex: recalls you're in Mandaluyong, your SMS + email reminder preference, and your ${D.dfaShort} DFA appointment — then attaches all 3 requirements from your Vault as clickable file chips. Open one live: the real PSA certificate PDF renders.`}
-              chain={`Book capture · ${D.postalShort}, 9:00 AM → booked around your existing schedule → Preview appointment pass listing the vault documents.`}
-            />
-            <ScenarioCard
-              phrase="Do I need to file my taxes?"
-              result="BIR breadth answer: TIN active at RDO 40, 2025 return filed via substituted filing — no card, pure knowledge."
-            />
-            <ScenarioCard
-              phrase="Salamat!"
-              result="Instant Taglish reply with no agency run — perfect for the tiering story: “heuristics answered that one for free.”"
-            />
-            <ScenarioCard
-              phrase="Help me get a business permit"
-              result="Anything unscripted falls back to a 3-step service-directory discovery run — the agent never dead-ends."
-            />
-          </div>
-
-          <GuideHeading>Beyond the chat</GuideHeading>
-          <div className="grid gap-2.5 sm:grid-cols-2">
-            <ScenarioCard
-              phrase="Connected agencies"
-              result="Sidebar page — 8 agencies live with real logos; click Connect on Pag-IBIG and watch it handshake and flip to Connected."
-            />
-            <ScenarioCard
-              phrase="Memory"
-              result={`What the agent remembers with sources — the Mandaluyong address, reminder preferences, and the ${D.dfaShort} appointment it uses in the Postal ID scenario.`}
-            />
-            <ScenarioCard
-              phrase="Vault"
-              result="The document vault: open the actual PSA birth certificate, Meralco bill, and 2×2 photo — the same files the Postal ID chat links to. Upload any file live and it lands encrypted on top."
-            />
-            <ScenarioCard
-              phrase="How it works"
-              result="The architecture page: challenge, request lifecycle, tiered AI with the −94% cost story, data boundaries. Your ammo for judges' technical questions."
-            />
-            <ScenarioCard
-              phrase="Profile (click your avatar)"
-              result="Read-only PhilSys identity: personal info, contact details, and every linked agency record with live statuses."
-            />
-          </div>
-
-          <GuideHeading>Pro tips</GuideHeading>
-          <ul className="space-y-1.5 text-[13px] leading-relaxed text-slate-500">
-            <li>
-              • The timeline takes ~12s by design — that&apos;s your narration
-              window, don&apos;t wait in silence.
-            </li>
-            <li>
-              • Preview opens the document in a new tab, with no automatic
-              browser print dialog.
-            </li>
-            <li>
-              • The map needs internet (basemap tiles) — everything else runs
-              offline.
-            </li>
-            <li>
-              • All scenario dates are computed from today — the DFA slot is
-              always in two weeks, the Postal ID capture two days after, so
-              the story matches whatever day you present.
-            </li>
-            <li>
-              • Refreshing the page resets all conversations to the seeded
-              list.
-            </li>
-            <li>• Go full screen and close extra tabs before you start.</li>
-          </ul>
-        </div>
-      </div>
     </div>
   );
 }
@@ -1315,68 +1111,237 @@ function TypingBubble() {
   );
 }
 
-/* Tokenize "**bold**" markers into word tokens that survive streaming.
-   Bold is tracked as character ranges so punctuation stays glued to words. */
-function tokenizeRich(text: string): { t: string; b: boolean }[] {
-  const ranges: [number, number][] = [];
-  let plain = "";
-  let bold = false;
-  let rangeStart = 0;
-  let i = 0;
-  while (i < text.length) {
-    if (text.startsWith("**", i)) {
-      if (!bold) {
-        rangeStart = plain.length;
-        bold = true;
-      } else {
-        ranges.push([rangeStart, plain.length]);
-        bold = false;
-      }
-      i += 2;
-    } else {
-      plain += text[i];
-      i += 1;
+type RichBlock =
+  | { kind: "heading"; text: string }
+  | { kind: "paragraph"; text: string }
+  | { kind: "unordered-list"; items: string[] }
+  | { kind: "ordered-list"; items: string[] }
+  | { kind: "quote"; text: string }
+  | { kind: "rule" };
+
+function parseRichBlocks(text: string): RichBlock[] {
+  const lines = text.replace(/\r\n/g, "\n").split("\n");
+  const blocks: RichBlock[] = [];
+  let index = 0;
+
+  while (index < lines.length) {
+    const line = lines[index].trim();
+    if (!line) {
+      index += 1;
+      continue;
     }
-  }
-  if (bold) ranges.push([rangeStart, plain.length]);
 
-  const tokens: { t: string; b: boolean }[] = [];
-  let idx = 0;
-  for (const w of plain.split(" ")) {
-    const wordStart = idx;
-    idx += w.length + 1;
-    if (!w) continue;
-    const b = ranges.some(
-      ([s, e]) => wordStart < e && wordStart + w.length > s
-    );
-    tokens.push({ t: w, b });
+    const heading = line.match(/^#{1,3}\s+(.+)$/);
+    if (heading) {
+      blocks.push({ kind: "heading", text: heading[1] });
+      index += 1;
+      continue;
+    }
+
+    if (/^---+$/.test(line)) {
+      blocks.push({ kind: "rule" });
+      index += 1;
+      continue;
+    }
+
+    if (/^[-*]\s+/.test(line)) {
+      const items: string[] = [];
+      while (index < lines.length) {
+        const item = lines[index].trim().match(/^[-*]\s+(.+)$/);
+        if (!item) break;
+        items.push(item[1]);
+        index += 1;
+      }
+      blocks.push({ kind: "unordered-list", items });
+      continue;
+    }
+
+    if (/^\d+[.)]\s+/.test(line)) {
+      const items: string[] = [];
+      while (index < lines.length) {
+        const item = lines[index].trim().match(/^\d+[.)]\s+(.+)$/);
+        if (!item) break;
+        items.push(item[1]);
+        index += 1;
+      }
+      blocks.push({ kind: "ordered-list", items });
+      continue;
+    }
+
+    if (/^>\s?/.test(line)) {
+      const quoteLines: string[] = [];
+      while (index < lines.length) {
+        const quote = lines[index].trim().match(/^>\s?(.+)$/);
+        if (!quote) break;
+        quoteLines.push(quote[1]);
+        index += 1;
+      }
+      blocks.push({ kind: "quote", text: quoteLines.join(" ") });
+      continue;
+    }
+
+    const paragraphLines: string[] = [];
+    while (index < lines.length) {
+      const candidate = lines[index].trim();
+      if (
+        !candidate ||
+        /^#{1,3}\s+/.test(candidate) ||
+        /^---+$/.test(candidate) ||
+        /^[-*]\s+/.test(candidate) ||
+        /^\d+[.)]\s+/.test(candidate) ||
+        /^>\s?/.test(candidate)
+      ) {
+        break;
+      }
+      paragraphLines.push(candidate);
+      index += 1;
+    }
+    blocks.push({ kind: "paragraph", text: paragraphLines.join(" ") });
   }
-  return tokens;
+
+  return blocks;
 }
 
-function RichTokens({ tokens }: { tokens: { t: string; b: boolean }[] }) {
-  return (
-    <>
-      {tokens.map((tok, i) => (
-        <span key={i}>
-          {tok.b ? (
-            <strong className="font-semibold text-slate-900">{tok.t}</strong>
-          ) : (
-            tok.t
-          )}
-          {i < tokens.length - 1 ? " " : ""}
-        </span>
-      ))}
-    </>
+function inlineRich(text: string, keyPrefix: string) {
+  const pattern =
+    /(\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)|\*\*([^*\n]+)\*\*|`([^`\n]+)`|\*([^*\n]+)\*)/g;
+  const nodes: React.ReactNode[] = [];
+  let cursor = 0;
+  let match: RegExpExecArray | null;
+  let tokenIndex = 0;
+
+  while ((match = pattern.exec(text))) {
+    if (match.index > cursor) {
+      nodes.push(text.slice(cursor, match.index));
+    }
+
+    const key = `${keyPrefix}-${tokenIndex++}`;
+    if (match[2] && match[3]) {
+      nodes.push(
+        <a
+          key={key}
+          href={match[3]}
+          target="_blank"
+          rel="noreferrer"
+          className="font-medium text-[#0a4f9e] underline decoration-[#0a4f9e]/35 underline-offset-[3px] [text-decoration-skip-ink:auto] [text-decoration-thickness:from-font] [text-underline-position:from-font] transition-colors duration-150 hover:decoration-[#0a4f9e]"
+        >
+          {match[2]}
+        </a>
+      );
+    } else if (match[4]) {
+      nodes.push(
+        <strong key={key} className="font-semibold text-slate-900">
+          {match[4]}
+        </strong>
+      );
+    } else if (match[5]) {
+      nodes.push(
+        <code
+          key={key}
+          className="rounded-md bg-[#0a4f9e]/8 px-1.5 py-0.5 font-mono text-[0.9em] text-[#0a4f9e]"
+        >
+          {match[5]}
+        </code>
+      );
+    } else if (match[6]) {
+      nodes.push(
+        <em key={key} className="italic text-slate-700">
+          {match[6]}
+        </em>
+      );
+    }
+
+    cursor = pattern.lastIndex;
+  }
+
+  if (cursor < text.length) {
+    nodes.push(text.slice(cursor));
+  }
+
+  return nodes;
+}
+
+function RichText({
+  text,
+  cursor = false,
+}: {
+  text: string;
+  cursor?: boolean;
+}) {
+  const blocks = useMemo(() => parseRichBlocks(text), [text]);
+  const streamCursor = (
+    <span className="stream-cursor ml-0.5 inline-block" aria-hidden />
   );
-}
 
-function RichText({ text }: { text: string }) {
-  const tokens = useMemo(() => tokenizeRich(text), [text]);
   return (
-    <p className="text-[16.5px] leading-[1.65] text-slate-700">
-      <RichTokens tokens={tokens} />
-    </p>
+    <div className="max-w-[65ch] space-y-3 break-words text-[16.5px] leading-[1.65] text-slate-700">
+      {blocks.map((block, blockIndex) => {
+        const isLastBlock = blockIndex === blocks.length - 1;
+
+        if (block.kind === "heading") {
+          return (
+            <h3
+              key={blockIndex}
+              className="text-balance text-[17px] font-semibold leading-snug tracking-tight text-slate-900"
+            >
+              {inlineRich(block.text, `heading-${blockIndex}`)}
+              {isLastBlock && cursor ? streamCursor : null}
+            </h3>
+          );
+        }
+
+        if (block.kind === "unordered-list" || block.kind === "ordered-list") {
+          const ListTag = block.kind === "ordered-list" ? "ol" : "ul";
+          return (
+            <ListTag
+              key={blockIndex}
+              className={`space-y-1.5 pl-5 ${
+                block.kind === "ordered-list" ? "list-decimal" : "list-disc"
+              } marker:font-semibold marker:text-[#0a4f9e]`}
+            >
+              {block.items.map((item, itemIndex) => (
+                <li key={itemIndex} className="pl-1">
+                  {inlineRich(item, `list-${blockIndex}-${itemIndex}`)}
+                  {isLastBlock &&
+                  cursor &&
+                  itemIndex === block.items.length - 1
+                    ? streamCursor
+                    : null}
+                </li>
+              ))}
+            </ListTag>
+          );
+        }
+
+        if (block.kind === "quote") {
+          return (
+            <blockquote
+              key={blockIndex}
+              className="border-l-2 border-[#0a4f9e]/25 pl-4 text-slate-600"
+            >
+              {inlineRich(block.text, `quote-${blockIndex}`)}
+              {isLastBlock && cursor ? streamCursor : null}
+            </blockquote>
+          );
+        }
+
+        if (block.kind === "rule") {
+          return (
+            <hr
+              key={blockIndex}
+              className="my-4 border-0 border-t border-slate-200"
+            />
+          );
+        }
+
+        return (
+          <p key={blockIndex}>
+            {inlineRich(block.text, `paragraph-${blockIndex}`)}
+            {isLastBlock && cursor ? streamCursor : null}
+          </p>
+        );
+      })}
+    </div>
   );
 }
 
@@ -1389,11 +1354,11 @@ function StreamedText({
   onDone: () => void;
   onTick: () => void;
 }) {
-  const words = useMemo(() => tokenizeRich(text), [text]);
-  const [count, setCount] = useState(1);
+  const chunks = useMemo(() => text.match(/\S+\s*/g) ?? [], [text]);
+  const [count, setCount] = useState(chunks.length ? 1 : 0);
 
   useEffect(() => {
-    if (count >= words.length) {
+    if (count >= chunks.length) {
       const timer = setTimeout(onDone, 200);
       return () => clearTimeout(timer);
     }
@@ -1401,18 +1366,13 @@ function StreamedText({
       setCount((c) => c + 1);
     }, 28 + Math.random() * 48);
     return () => clearTimeout(timer);
-  }, [count, onDone, words.length]);
+  }, [chunks.length, count, onDone]);
 
   useEffect(() => {
     onTick();
   }, [count, onTick]);
 
-  return (
-    <p className="text-[16.5px] leading-[1.65] text-slate-700">
-      <RichTokens tokens={words.slice(0, count)} />
-      <span className="stream-cursor" aria-hidden />
-    </p>
-  );
+  return <RichText text={chunks.slice(0, count).join("")} cursor />;
 }
 
 /* ------------------------------ service cards ------------------------------ */
@@ -1449,63 +1409,94 @@ function CardShell({
   );
 }
 
-function ActionButton({
-  children,
-  onClick,
-}: {
-  children: React.ReactNode;
-  onClick?: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="bg-brand-gradient flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl py-3 text-[14.5px] font-medium text-white shadow-[0_12px_26px_-12px_rgba(6,61,125,0.55)] transition-[opacity,transform] duration-150 hover:opacity-90 active:scale-[0.96]"
-    >
-      {children}
-    </button>
-  );
-}
-
-function PreviewStampButton({
-  kind,
-  label,
-  onClick,
-}: {
-  kind: PrintKind;
-  label: string;
-  onClick: () => void;
-}) {
-  const file = PRINT_FILE_PREVIEWS[kind];
-
-  return (
-    <button
-      type="button"
-      aria-label={label}
-      onClick={onClick}
-      className="group flex min-h-[92px] w-full cursor-pointer items-center gap-3 py-1 pr-2 text-left transition-transform duration-200 ease-out focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#0a4f9e]/30 active:scale-[0.96]"
-    >
-      <VaultFileStamp
-        name={file.name}
-        preview={file.preview}
-        index={file.stampIndex}
-      />
-      <span className="min-w-0">
-        <span className="line-clamp-2 text-[13px] font-semibold leading-snug text-slate-700 transition-colors duration-200 group-hover:text-[#0a4f9e] group-focus-visible:text-[#0a4f9e]">
-          {file.name}
-        </span>
-        <span className="font-pixel mt-1 block text-[7.5px] uppercase tracking-[0.12em] text-[#0a4f9e]/65">
-          Open preview
-        </span>
-      </span>
-    </button>
-  );
-}
-
 function FieldLabel({ children }: { children: React.ReactNode }) {
   return (
     <div className="font-pixel text-[8.5px] uppercase tracking-[0.16em] text-slate-400">
       {children}
+    </div>
+  );
+}
+
+function FakeQrPreview({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}) {
+  const size = 21;
+  const seed = [...value].reduce(
+    (total, character, index) =>
+      (total + character.charCodeAt(0) * (index + 11)) % 997,
+    0
+  );
+
+  const finderValue = (x: number, y: number, left: number, top: number) => {
+    const localX = x - left;
+    const localY = y - top;
+    if (localX < 0 || localX > 6 || localY < 0 || localY > 6) return null;
+    return (
+      localX === 0 ||
+      localX === 6 ||
+      localY === 0 ||
+      localY === 6 ||
+      (localX >= 2 && localX <= 4 && localY >= 2 && localY <= 4)
+    );
+  };
+
+  const isDark = (x: number, y: number) => {
+    for (const [left, top] of [
+      [0, 0],
+      [14, 0],
+      [0, 14],
+    ]) {
+      const finder = finderValue(x, y, left, top);
+      if (finder !== null) return finder;
+    }
+
+    if ((x === 7 && y <= 7) || (y === 7 && x <= 7)) return false;
+    if ((x === 13 && y <= 7) || (y === 7 && x >= 13)) return false;
+    if ((x === 7 && y >= 13) || (y === 13 && x <= 7)) return false;
+    if (x === 6 || y === 6) return (x + y) % 2 === 0;
+
+    const character = value.charCodeAt((x * 3 + y * 5) % value.length);
+    return (x * 17 + y * 31 + seed + character) % 11 < 5;
+  };
+
+  const cells = [];
+  for (let y = 0; y < size; y += 1) {
+    for (let x = 0; x < size; x += 1) {
+      if (isDark(x, y)) {
+        cells.push(<rect key={`${x}-${y}`} x={x} y={y} width="1" height="1" />);
+      }
+    }
+  }
+
+  return (
+    <div className="flex items-center gap-3 rounded-lg bg-[#f3f7fc] p-3 sm:flex-col sm:text-center">
+      <svg
+        aria-label={`${label} preview`}
+        className="h-[104px] w-[104px] shrink-0 bg-white p-2 shadow-[0_10px_24px_-18px_rgba(15,23,42,0.55)]"
+        role="img"
+        viewBox="-2 -2 25 25"
+      >
+        <title>{label} preview</title>
+        <rect x="-2" y="-2" width="25" height="25" fill="white" />
+        <g fill="#101820" shapeRendering="crispEdges">
+          {cells}
+        </g>
+      </svg>
+      <div className="min-w-0">
+        <div className="font-pixel text-[8px] uppercase tracking-[0.14em] text-[#0a4f9e]">
+          {label}
+        </div>
+        <div className="mt-1 break-all font-mono text-[10px] font-semibold leading-snug text-slate-600">
+          {value}
+        </div>
+        <div className="mt-1 text-[10px] leading-snug text-slate-400">
+          Present at travel check-in
+        </div>
+      </div>
     </div>
   );
 }
@@ -1516,29 +1507,121 @@ function dateTile(date: string) {
   return match ? { mon: match[1].slice(0, 3), day: match[2] } : null;
 }
 
-function ServiceCard({
-  card,
-  user,
-  onIntent,
-}: {
-  card: Card;
-  user: User;
-  onIntent: (text: string) => void;
-}) {
-  const primary = () => {
-    if (card.intent) onIntent(card.intent);
-    else if (card.print) previewForm(card.print, user);
-  };
-  const secondaryPreview =
-    card.intent && card.print ? (
-      <div className="mt-2">
-        <PreviewStampButton
-          kind={card.print}
-          label={card.printLabel ?? "Preview pre-filled form"}
-          onClick={() => previewForm(card.print!, user)}
-        />
+function ServiceCard({ card }: { card: Card }) {
+  if (card.kind === "employmentPack") {
+    return (
+      <div className="max-w-xl overflow-hidden rounded-2xl bg-white shadow-[0_18px_44px_-26px_rgba(6,61,125,0.42)]">
+        <div className="bg-brand-gradient relative overflow-hidden px-5 py-5 text-white">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_85%_15%,rgba(255,255,255,0.18),transparent_34%)]" />
+          <div className="relative flex items-start gap-3.5">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/14 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.13)]">
+              <Briefcase size={21} />
+            </span>
+            <div className="min-w-0">
+              <div className="font-pixel text-[9px] uppercase tracking-[0.18em] text-white/70">
+                Multi-agency employment readiness
+              </div>
+              <div className="mt-1 text-[22px] font-semibold leading-tight">
+                {card.title}
+              </div>
+              <div className="mt-1 text-[12.5px] leading-snug text-white/72">
+                {card.subtitle}
+              </div>
+            </div>
+            <span className="font-pixel ml-auto shrink-0 rounded-full bg-emerald-400/18 px-2.5 py-1 text-[8.5px] uppercase tracking-[0.14em] text-emerald-100">
+              {card.ready}/{card.total} ready
+            </span>
+          </div>
+
+          <div
+            className="relative mt-4 grid gap-1.5"
+            style={{ gridTemplateColumns: `repeat(${card.total}, minmax(0, 1fr))` }}
+            aria-label={`${card.ready} of ${card.total} employment checks ready`}
+          >
+            {Array.from({ length: card.total }, (_, index) => (
+              <span
+                key={index}
+                className={`h-1.5 rounded-full ${
+                  index < card.ready ? "bg-emerald-300" : "bg-white/24"
+                }`}
+              />
+            ))}
+          </div>
+        </div>
+
+        <div className="px-5 py-5">
+          <div className="flex items-center justify-between gap-3">
+            <FieldLabel>Government service checks</FieldLabel>
+            <span className="text-[10.5px] font-medium text-slate-400">
+              One request · separate sources
+            </span>
+          </div>
+
+          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+            {card.services.map((service, index) => {
+              const hasSeal = Boolean(sealFor(service.agency));
+              const needsAction = service.status === "Needs action";
+              return (
+                <div
+                  key={service.agency}
+                  style={{ animationDelay: `${index * 55}ms` }}
+                  className="animate-result-in flex min-w-0 items-center gap-3 rounded-xl bg-[#f6f9fd] px-3 py-3"
+                >
+                  {hasSeal ? (
+                    <AgencySeal label={service.agency} size={28} />
+                  ) : (
+                    <span className="font-pixel flex h-7 min-w-7 shrink-0 items-center justify-center rounded-lg bg-[#0a4f9e]/9 px-1.5 text-[7px] tracking-[0.08em] text-[#0a4f9e]">
+                      {service.initials}
+                    </span>
+                  )}
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[12px] font-semibold text-slate-700">
+                      {service.agency} · {service.service}
+                    </span>
+                    <span className="mt-0.5 block truncate text-[10.5px] text-slate-400">
+                      {service.detail}
+                    </span>
+                  </span>
+                  <span
+                    className={`font-pixel flex shrink-0 items-center gap-1 text-[7.5px] uppercase tracking-[0.1em] ${
+                      needsAction ? "text-amber-600" : "text-emerald-600"
+                    }`}
+                  >
+                    <span
+                      className={`h-1.5 w-1.5 rounded-full ${
+                        needsAction ? "bg-amber-500" : "bg-emerald-500"
+                      }`}
+                    />
+                    {service.status}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="mt-4 rounded-xl bg-[#fbfcfe] px-4 py-3">
+            <div className="flex items-center gap-2">
+              <ShieldCheck size={14} className="text-[#0a4f9e]" />
+              <FieldLabel>Private documents found in your Vault</FieldLabel>
+            </div>
+            <div className="mt-2 flex flex-wrap gap-x-4 gap-y-2">
+              {card.vaultDocuments.map((document) => (
+                <div key={document.name} className="flex items-center gap-1.5">
+                  <FileText size={12} className="text-slate-400" />
+                  <span className="text-[10.5px] font-medium text-slate-600">
+                    {document.name}
+                  </span>
+                  <span className="text-[9.5px] text-slate-400">
+                    · {document.status}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
       </div>
-    ) : null;
+    );
+  }
 
   if (card.kind === "ereportDraft") {
     return (
@@ -1632,11 +1715,6 @@ function ServiceCard({
             ))}
           </div>
 
-          <div className="mt-4">
-            <ActionButton onClick={primary}>
-              <ShieldCheck size={16} /> {card.action}
-            </ActionButton>
-          </div>
         </div>
       </div>
     );
@@ -1725,14 +1803,6 @@ function ServiceCard({
               </div>
             </div>
           </div>
-
-          <div className="mt-2">
-            <PreviewStampButton
-              kind={card.print}
-              label={card.action}
-              onClick={() => previewForm(card.print, user)}
-            />
-          </div>
         </div>
       </div>
     );
@@ -1743,7 +1813,7 @@ function ServiceCard({
       <CardShell
         icon={<AgencySeal label="eGov Pay" size={20} />}
         title={card.title}
-        tag="Simulation"
+        tag="Secure"
       >
         <div className="px-5 py-4">
           <div className="flex items-center gap-3">
@@ -1783,17 +1853,11 @@ function ServiceCard({
             </div>
           </div>
 
-          <div className="mt-3 flex items-start gap-2.5 bg-amber-50/80 px-3.5 py-3 text-[12px] leading-relaxed text-amber-800">
+          <div className="mt-3 flex items-start gap-2.5 bg-[#eef6ff] px-3.5 py-3 text-[12px] leading-relaxed text-[#0a4f9e]">
             <ShieldCheck size={15} className="mt-0.5 shrink-0" />
             <span>
-              Demo checkout only. No real funds will be charged or transferred.
+              Payment details are encrypted and require your authorization.
             </span>
-          </div>
-
-          <div className="mt-4">
-            <ActionButton onClick={primary}>
-              <ShieldCheck size={16} /> {card.action}
-            </ActionButton>
           </div>
           <div className="mt-3 flex items-center justify-between gap-3 text-[10.5px] text-slate-400">
             <span>Payment reference</span>
@@ -1875,16 +1939,8 @@ function ServiceCard({
           </div>
 
           <div className="mt-3 bg-slate-50 px-3.5 py-2.5 text-[11px] leading-relaxed text-slate-500">
-            Simulation eReceipt · issued after simulated payment confirmation ·
-            no real funds charged
-          </div>
-
-          <div className="mt-2">
-            <PreviewStampButton
-              kind={card.print}
-              label={card.action}
-              onClick={() => previewForm(card.print, user)}
-            />
+            Verified eReceipt · issued after payment confirmation · reference
+            available for agency verification
           </div>
         </div>
       </CardShell>
@@ -1937,12 +1993,6 @@ function ServiceCard({
               {card.reference}
             </span>
           </div>
-          <div className="mt-4">
-            <ActionButton onClick={primary}>
-              Confirm this slot <ChevronRight size={16} />
-            </ActionButton>
-            {secondaryPreview}
-          </div>
         </div>
       </CardShell>
     );
@@ -1960,10 +2010,10 @@ function ServiceCard({
                 Land Transportation Office
               </div>
               <div className="mt-1 text-[22px] font-semibold leading-tight">
-                Welcome, {user.firstName.toUpperCase()}
+                Official violation record
               </div>
               <div className="mt-0.5 text-[13.5px] text-white/75">
-                What would you like to do?
+                Verified through the connected LTO service
               </div>
             </div>
             <span className="font-pixel ml-auto rounded-full border border-white/25 bg-white/10 px-2.5 py-1 text-[9px] uppercase tracking-[0.14em] text-white">
@@ -2046,12 +2096,6 @@ function ServiceCard({
             </div>
           </div>
         </div>
-
-        <div className="border-t border-slate-100 bg-[#fafcff] px-5 py-4">
-          <ActionButton onClick={primary}>
-            {card.action} <ChevronRight size={16} />
-          </ActionButton>
-        </div>
       </div>
     );
   }
@@ -2081,12 +2125,6 @@ function ServiceCard({
           <span className="text-[15px] font-semibold text-[#0a4f9e]">
             {card.fee}
           </span>
-        </div>
-        <div className="px-5 py-4">
-          <ActionButton onClick={primary}>
-            <CreditCard size={16} /> {card.action}
-          </ActionButton>
-          {secondaryPreview}
         </div>
       </CardShell>
     );
@@ -2160,7 +2198,7 @@ function ServiceCard({
           </SiteMap>
         </div>
 
-        <div className="px-5">
+        <div className="px-5 pb-2">
           {card.sites.map((s) => (
             <div
               key={s.id}
@@ -2184,13 +2222,6 @@ function ServiceCard({
               )}
             </div>
           ))}
-        </div>
-
-        <div className="px-5 py-4">
-          <ActionButton onClick={primary}>
-            {card.action} <ChevronRight size={16} />
-          </ActionButton>
-          {secondaryPreview}
         </div>
       </div>
     );
@@ -2229,54 +2260,40 @@ function ServiceCard({
             {card.total}
           </span>
         </div>
-        {card.print && (
-          <div className="border-t border-slate-100 px-5 py-3.5">
-            <PreviewStampButton
-              kind={card.print}
-              label={card.printLabel ?? "Preview statement"}
-              onClick={() => previewForm(card.print!, user)}
-            />
-          </div>
-        )}
       </CardShell>
     );
   }
 
   return (
     <CardShell icon={<FileText size={13} />} title={card.title} tag="Active">
-      <div className="grid grid-flow-dense grid-cols-2 gap-x-4 gap-y-4 px-5 py-4">
-        {card.fields.map((f) => (
-          <div
-            key={f.label}
-            className={`min-w-0 ${f.value.length > 24 ? "col-span-2" : ""}`}
-          >
-            <FieldLabel>{f.label}</FieldLabel>
-            {f.label === "Status" ? (
-              <span className="mt-1 inline-flex max-w-full items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-[12px] font-medium text-emerald-600">
-                <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500" />
-                <span className="truncate">{f.value}</span>
-              </span>
-            ) : (
-              <div className="mt-1 text-[13.5px] font-medium leading-snug text-slate-700">
-                {f.value}
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
-      <div className="px-5 pb-4">
-        {card.intent ? (
-          <ActionButton onClick={primary}>
-            {card.action} <ChevronRight size={16} />
-          </ActionButton>
-        ) : card.print ? (
-          <PreviewStampButton
-            kind={card.print}
-            label={card.action}
-            onClick={() => previewForm(card.print!, user)}
-          />
-        ) : null}
-        {secondaryPreview}
+      <div
+        className={
+          card.qr
+            ? "grid gap-4 px-5 py-4 sm:grid-cols-[minmax(0,1fr)_132px] sm:items-center"
+            : "px-5 py-4"
+        }
+      >
+        <div className="grid grid-flow-dense grid-cols-2 gap-x-4 gap-y-4">
+          {card.fields.map((f) => (
+            <div
+              key={f.label}
+              className={`min-w-0 ${f.value.length > 24 ? "col-span-2" : ""}`}
+            >
+              <FieldLabel>{f.label}</FieldLabel>
+              {f.label === "Status" ? (
+                <span className="mt-1 inline-flex max-w-full items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-[12px] font-medium text-emerald-600">
+                  <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500" />
+                  <span className="truncate">{f.value}</span>
+                </span>
+              ) : (
+                <div className="mt-1 text-[13.5px] font-medium leading-snug text-slate-700">
+                  {f.value}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+        {card.qr && <FakeQrPreview label={card.qr.label} value={card.qr.value} />}
       </div>
     </CardShell>
   );

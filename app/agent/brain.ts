@@ -3,6 +3,11 @@
 
 import { type PrintKind } from "./forms";
 import { DEMO_DATES as D } from "./dates";
+import {
+  eTravelReference,
+  hasCompleteETravelDetails,
+  type ETravelDetails,
+} from "./ai-contract";
 
 /* ---------------------------------- types --------------------------------- */
 
@@ -50,6 +55,23 @@ export type Card = CardBase &
         kind: "record";
         title: string;
         fields: { label: string; value: string }[];
+        action: string;
+        qr?: { label: string; value: string };
+      }
+    | {
+        kind: "employmentPack";
+        title: string;
+        subtitle: string;
+        ready: number;
+        total: number;
+        services: {
+          agency: string;
+          initials: string;
+          service: string;
+          detail: string;
+          status: "Verified" | "Active" | "Ready" | "Needs action";
+        }[];
+        vaultDocuments: { name: string; status: string }[];
         action: string;
       }
     | {
@@ -163,6 +185,7 @@ export type Msg = {
   id: number;
   role: "user" | "agent";
   text: string;
+  quickActions?: string[];
   card?: Card;
   trace?: TraceStep[];
   elapsed?: string;
@@ -217,50 +240,13 @@ export function readDemoUser(raw: string | null): User | null {
 /* ----------------------------- scripted brain ----------------------------- */
 
 export const SUGGESTIONS = [
+  "Register my eTravel departure",
+  "Start a business in Mandaluyong",
+  "Request my PSA birth certificate",
   "File a flooding eReport",
-  "Find the nearest DFA office",
   "Renew my passport",
-  "Get an NBI clearance",
   "Check my SSS contributions",
-  "PhilHealth member record",
-  "Check my LTO violations",
 ];
-
-export const RECENT_CONVERSATIONS = [
-  "Update my voter registration address",
-  "Request a PSA birth certificate",
-  "Check my Pag-IBIG MP2 savings",
-];
-
-export const SEED_ELAPSED = ["11.2s", "9.8s", "12.6s", "10.4s", "13.1s"];
-
-/* Pre-generate a realistic transcript for each seeded conversation */
-export function seedConversation(
-  title: string,
-  user: User,
-  index: number
-): Conversation {
-  const plan = agentPlan(title, user);
-  const base = 900000 + index * 10;
-  return {
-    id: `seed-${index}`,
-    title,
-    messages: [
-      { id: base + 1, role: "user", text: title },
-      {
-        id: base + 2,
-        role: "agent",
-        text: plan.text,
-        card: plan.card,
-        trace: plan.steps.length ? plan.steps : undefined,
-        attachments: plan.attachments,
-        elapsed: plan.steps.length
-          ? SEED_ELAPSED[index % SEED_ELAPSED.length]
-          : undefined,
-      },
-    ],
-  };
-}
 
 export function step(
   icon: StepIcon,
@@ -303,11 +289,311 @@ export const VAULT_FILES = {
   },
 };
 
+function formatETravelDate(value: string) {
+  const parsed = new Date(`${value}T12:00:00`);
+  if (Number.isNaN(parsed.getTime())) return value;
+  return parsed.toLocaleDateString("en-PH", {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+export function buildETravelPlan(
+  details: ETravelDetails,
+  user: User,
+  submitted: boolean
+): Plan {
+  if (!hasCompleteETravelDetails(details)) {
+    return { steps: [], text: "" };
+  }
+
+  const direction =
+    details.direction === "arrival" ? "Arrival" : "Departure";
+  const travelerType =
+    details.direction === "arrival"
+      ? "Arriving passenger"
+      : "Departing passenger";
+  const route = `${details.origin} → ${details.destination}`;
+  const schedule = `${formatETravelDate(details.travelDate)} · ${details.travelTime}`;
+  const flight = `${details.flightNumber} · ${details.travelTime}`;
+  const reference = eTravelReference(details);
+
+  if (submitted) {
+    return {
+      steps: [
+        step(
+          "shield",
+          "Recording your consent",
+          "eGovPH Consent",
+          "Travel-only data scope approved",
+          900
+        ),
+        step(
+          "records",
+          "Submitting your declaration",
+          "eTravel via eGovDX",
+          `${travelerType} · ${route}`,
+          1350
+        ),
+        step(
+          "file",
+          "Issuing your travel QR",
+          "eTravel",
+          `${reference} · ready for boarding`,
+          1050
+        ),
+        step(
+          "spark",
+          "Saving your copy and reminders",
+          "eGovPH",
+          "QR saved · SMS and email reminder scheduled",
+          900
+        ),
+      ],
+      text: `Your **eTravel declaration is registered**, ${user.firstName}.`,
+      card: {
+        kind: "record",
+        title: "eTravel QR — Registered",
+        fields: [
+          { label: "Reference", value: reference },
+          { label: "Direction", value: travelerType },
+          { label: "Route", value: route },
+          { label: "Flight", value: flight },
+          { label: "Travel date", value: schedule },
+          { label: "Status", value: "Registered · QR issued" },
+        ],
+        action: "Open eTravel QR declaration",
+        print: "etravel-qr",
+        qr: { label: "eTravel QR", value: reference },
+      },
+    };
+  }
+
+  return {
+    steps: [
+      step(
+        "identity",
+        "Reusing your verified eGovPH profile",
+        "eGov SSO · eVerify",
+        "Name, nationality, contact, and identity matched",
+        950
+      ),
+      step(
+        "calendar",
+        "Checking your travel schedule",
+        "eTravel",
+        `${schedule} · ${details.flightNumber}`,
+        1050
+      ),
+      step(
+        "records",
+        "Preparing your travel declaration",
+        "eTravel via eGovDX",
+        `${travelerType} · ${route}`,
+        1350
+      ),
+      step(
+        "shield",
+        "Holding submission for your review",
+        "eGovPH Consent",
+        "No data shared yet · explicit consent required",
+        900
+      ),
+    ],
+    text: `Your **eTravel ${direction.toLowerCase()} declaration** is ready for review.`,
+    card: {
+      kind: "record",
+      title: `eTravel ${direction} — Ready to Review`,
+      fields: [
+        { label: "Traveler", value: `${user.name} · Filipino` },
+        { label: "Direction", value: travelerType },
+        { label: "Route", value: route },
+        { label: "Flight", value: flight },
+        { label: "Travel date", value: schedule },
+        { label: "Submission", value: "Waiting for your consent" },
+      ],
+      action: "Review eTravel declaration",
+      intent: "Submit my eTravel declaration",
+    },
+  };
+}
+
 export function agentPlan(input: string, user: User): Plan {
   const q = input.toLowerCase();
   const hasIncidentPhoto = q.includes("attachments:");
 
   /* ---- follow-up actions triggered by card buttons (checked first) ---- */
+
+  if (
+    q.includes("psa") &&
+    (q.includes("confirm") || q.includes("submit prepared"))
+  ) {
+    return {
+      steps: [
+        step(
+          "shield",
+          "Recording your request consent",
+          "eGovPH Consent",
+          "Identity and delivery address approved for PSA",
+          900
+        ),
+        step(
+          "records",
+          "Sending the certificate request",
+          "PSA via eGovDX",
+          "Civil-registry request received",
+          1350
+        ),
+        step(
+          "payment",
+          "Requesting the official agency quote",
+          "PSA · eGovPay",
+          "Processing and delivery quote pending your review",
+          1050
+        ),
+        step(
+          "spark",
+          "Starting status notifications",
+          "eMessage",
+          "SMS and email tracking enabled",
+          900
+        ),
+      ],
+      text: `Your **PSA birth certificate request is received**. PSA will return the official processing and delivery quote before any payment is opened. Your identity and Mandaluyong delivery city were shared only after your confirmation, and tracking is now enabled.`,
+      card: {
+        kind: "record",
+        title: "PSA Certificate Request — Received",
+        fields: [
+          { label: "Reference", value: `PSA-REQ-${D.year}-2714` },
+          { label: "Document", value: "Certificate of Live Birth · 1 copy" },
+          { label: "Delivery", value: "Mandaluyong City" },
+          { label: "Next step", value: "Review PSA quote before payment" },
+        ],
+        action: "Open request acknowledgement",
+        print: "psa-request",
+      },
+    };
+  }
+
+  /* ---- eGovDX showcase: one chat, several connected services ---- */
+
+  if (
+    q.includes("psa") ||
+    q.includes("birth certificate") ||
+    q.includes("cenomar") ||
+    q.includes("marriage certificate") ||
+    q.includes("death certificate")
+  ) {
+    const documentType = q.includes("cenomar")
+      ? "Certificate of No Marriage (CENOMAR)"
+      : q.includes("marriage")
+        ? "Marriage Certificate"
+        : q.includes("death")
+          ? "Death Certificate"
+          : "Birth Certificate";
+
+    return {
+      steps: [
+        step(
+          "identity",
+          "Matching the requesting party",
+          "eGov SSO · eVerify",
+          "Verified identity ready for user review",
+          950
+        ),
+        step(
+          "records",
+          "Preparing the civil-registry request",
+          "PSA via eGovDX",
+          `${documentType} · one copy`,
+          1250
+        ),
+        step(
+          "file",
+          "Reusing your registered delivery city",
+          "Personal Context",
+          "Mandaluyong City · full address remains private",
+          900
+        ),
+        step(
+          "shield",
+          "Holding the request for consent",
+          "eGovPH Consent",
+          "Nothing submitted or paid yet",
+          850
+        ),
+      ],
+      text: `I prepared a request for **one ${documentType}**. Your verified identity and Mandaluyong delivery city are pre-filled, but the request has not been submitted. After you confirm, PSA returns the official processing and delivery quote before any eGovPay payment.`,
+      card: {
+        kind: "checklist",
+        title: `PSA ${documentType} — Ready to Request`,
+        items: [
+          "Requesting party — matched through eGovPH",
+          "Identity details — ready for your review",
+          "Delivery city — Mandaluyong City",
+          "Agency quote — shown before payment",
+        ],
+        fee: "No charge yet · PSA quote comes next",
+        action: "Review and confirm request",
+        intent: "Confirm my PSA request",
+      },
+    };
+  }
+
+  if (
+    q.includes("business") ||
+    q.includes("sole proprietorship") ||
+    q.includes("business name")
+  ) {
+    return {
+      steps: [
+        step(
+          "identity",
+          "Reusing your verified owner profile",
+          "eGov SSO · eVerify",
+          "Owner identity and Mandaluyong address ready",
+          950
+        ),
+        step(
+          "search",
+          "Building the national registration path",
+          "DTI BNRS · BIR",
+          "Business name first · taxpayer registration follows",
+          1250
+        ),
+        step(
+          "records",
+          "Adding the local permit path",
+          "Mandaluyong eLGU",
+          "Barangay clearance and business permit linked",
+          1250
+        ),
+        step(
+          "payment",
+          "Preparing one payment view",
+          "eGovPay",
+          "Each official agency quote appears before payment",
+          950
+        ),
+      ],
+      text: `I built one **business setup path for Mandaluyong**. We start with the **DTI business name**, continue to **BIR taxpayer registration**, then finish the **barangay and eLGU permits**. I keep one checklist and reuse approved details, while each agency remains the official source for requirements, fees, and status.`,
+      card: {
+        kind: "checklist",
+        title: "Start a Sole Proprietorship — Mandaluyong",
+        items: [
+          "DTI BNRS — choose and check a business name",
+          "BIR — prepare taxpayer and invoice registration",
+          "Barangay — request the business clearance",
+          "Mandaluyong eLGU — complete the business permit",
+          "eGovPay — review each official fee before payment",
+        ],
+        fee: "No payment yet · agency quotes appear per step",
+        action: "Choose a business name",
+      },
+    };
+  }
 
   if (q.includes("submit") && q.includes("ereport")) {
     return {
@@ -498,7 +784,7 @@ export function agentPlan(input: string, user: User): Plan {
           1200
         ),
       ],
-      text: `Payment confirmed — **₱180.00** was processed through the simulated eGovPay checkout. Your **electronic official receipt has been issued below**, and your NBI Clearance is now being generated. The digital copy lands in your email in about **10 minutes**.`,
+      text: `Payment confirmed — **₱180.00** was processed through eGovPay. Your **electronic official receipt has been issued below**, and your NBI Clearance is now being generated. The digital copy lands in your email in about **10 minutes**.`,
       card: {
         kind: "receipt",
         title: "NBI Clearance eReceipt",
@@ -540,7 +826,7 @@ export function agentPlan(input: string, user: User): Plan {
           1150
         ),
       ],
-      text: `Your **eGovPay checkout is ready** for the NBI Clearance application. Review the fee breakdown and authorize the simulated payment below. No real funds will be charged in this demo.`,
+      text: `Your **eGovPay checkout is ready** for the NBI Clearance application. Review the fee breakdown and authorize the payment below.`,
       card: {
         kind: "payment",
         title: "eGovPay Secure Checkout",
@@ -898,6 +1184,179 @@ export function agentPlan(input: string, user: User): Plan {
     };
   }
 
+  if (
+    q.includes("employment starter") ||
+    q.includes("first job") ||
+    q.includes("new job") ||
+    q.includes("new hire") ||
+    q.includes("pre-employment") ||
+    q.includes("job requirements")
+  ) {
+    return {
+      steps: [
+        step(
+          "identity",
+          "Verifying your employment identity",
+          "PhilSys eVerify",
+          "Identity and registered address matched",
+          900
+        ),
+        step(
+          "file",
+          "Checking reusable employment documents",
+          "Personal Vault · PSA",
+          "Birth certificate and Barangay Clearance available",
+          1100
+        ),
+        step(
+          "records",
+          "Checking social security membership",
+          "SSS",
+          "Active member · employer registration ready",
+          1300
+        ),
+        step(
+          "records",
+          "Checking health insurance membership",
+          "PhilHealth",
+          "Active member · employer enrollment ready",
+          1450
+        ),
+        step(
+          "records",
+          "Checking housing fund membership",
+          "Pag-IBIG Fund",
+          "Active member · employer enrollment ready",
+          1200
+        ),
+        step(
+          "search",
+          "Checking clearance readiness",
+          "NBI eClearance",
+          "Renewal prepared · user review required",
+          1350
+        ),
+      ],
+      text: `Your **Employment Starter Pack** is ready, ${user.firstName}. Five of six government checks are complete. Your PhilHealth, SSS, and Pag-IBIG memberships are active, while your PSA birth certificate and Barangay Clearance remain private in your Vault until you approve sharing. The only pending action is reviewing your NBI clearance renewal.`,
+      card: {
+        kind: "employmentPack",
+        title: "Employment Starter Pack",
+        subtitle: "One readiness check across six government services",
+        ready: 5,
+        total: 6,
+        services: [
+          {
+            agency: "PhilSys",
+            initials: "PS",
+            service: "Identity and address",
+            detail: "Verified profile matched",
+            status: "Verified",
+          },
+          {
+            agency: "PSA",
+            initials: "PSA",
+            service: "Birth certificate",
+            detail: "Available securely in Vault",
+            status: "Ready",
+          },
+          {
+            agency: "SSS",
+            initials: "SSS",
+            service: "Membership",
+            detail: "Active · employer registration ready",
+            status: "Active",
+          },
+          {
+            agency: "PhilHealth",
+            initials: "PH",
+            service: "Membership",
+            detail: "Active · employer enrollment ready",
+            status: "Active",
+          },
+          {
+            agency: "Pag-IBIG",
+            initials: "HDMF",
+            service: "Fund membership",
+            detail: "Active · employer enrollment ready",
+            status: "Active",
+          },
+          {
+            agency: "NBI",
+            initials: "NBI",
+            service: "Employment clearance",
+            detail: "Renewal prepared for review",
+            status: "Needs action",
+          },
+        ],
+        vaultDocuments: [
+          {
+            name: "PSA Birth Certificate",
+            status: "Available after consent",
+          },
+          {
+            name: "Barangay Clearance",
+            status: "Available after consent",
+          },
+        ],
+        action: "Review NBI clearance request",
+        intent: "Review my NBI clearance request",
+      },
+    };
+  }
+
+  if (
+    q.includes("philhealth") &&
+    (q.includes("premium") ||
+      q.includes("contribution") ||
+      q.includes("payment history") ||
+      q.includes("payments"))
+  ) {
+    return {
+      steps: [
+        step(
+          "identity",
+          "Verifying your identity",
+          "PhilSys eVerify",
+          "Identity confirmed · member matched",
+          900
+        ),
+        step(
+          "records",
+          "Connecting to your membership record",
+          "PhilHealth",
+          "PIN 08-025518412-3 · Active",
+          1250
+        ),
+        step(
+          "search",
+          "Reading premium payment history",
+          "PhilHealth",
+          `Latest three premiums posted through ${D.sssMonth1}`,
+          1450
+        ),
+        step(
+          "spark",
+          "Preparing your premium summary",
+          "eGov Agent",
+          "No missed posting found in the displayed period",
+          1000
+        ),
+      ],
+      text: `Here is your latest **PhilHealth premium contribution history**, ${user.firstName}. The three displayed monthly premiums are posted through **${D.sssMonth1}**, with no missed posting in this period.`,
+      card: {
+        kind: "contributions",
+        title: "PhilHealth · 08-025518412-3",
+        rows: [
+          { month: D.sssMonth1, amount: "₱1,250.00", status: "Posted" },
+          { month: D.sssMonth2, amount: "₱1,250.00", status: "Posted" },
+          { month: D.sssMonth3, amount: "₱1,250.00", status: "Posted" },
+        ],
+        total: "₱3,750.00",
+        meta: "3 recent premiums · fully posted",
+      },
+    };
+  }
+
   if (q.includes("nbi") || q.includes("clearance")) {
     return {
       steps: [
@@ -1017,9 +1476,9 @@ export function agentPlan(input: string, user: User): Plan {
         ),
         step(
           "search",
-          "Checking premium payment history",
+          "Checking membership status",
           "PhilHealth",
-          `Premiums current through ${D.sssMonth1}`,
+          "Membership is active",
           1450
         ),
         step(
@@ -1030,14 +1489,14 @@ export function agentPlan(input: string, user: User): Plan {
           1000
         ),
       ],
-      text: `Your PhilHealth membership is **active** and your **premiums are up to date**. Here's your Member Data Record — I can send a **certified digital copy** to your registered email if you need one for employment or hospital admission.`,
+      text: `Your PhilHealth membership is **active**. Here is your Member Data Record with your member type and registered dependents. You can request a **certified digital copy** for employment or hospital admission.`,
       card: {
         kind: "record",
         title: "PhilHealth Member Data Record",
         fields: [
           { label: "PIN", value: "08-025518412-3" },
           { label: "Member type", value: "Direct Contributor — Employed" },
-          { label: "Status", value: "Premiums up to date" },
+          { label: "Status", value: "Active membership" },
           { label: "Dependents", value: "2 registered" },
         ],
         action: "Email certified MDR",
@@ -1137,7 +1596,7 @@ export function agentPlan(input: string, user: User): Plan {
           1150
         ),
       ],
-      text: `The simulated **₱1,000.00 eGovPay payment is confirmed**. Your electronic official receipt has been issued, the settlement was posted to the OGA interface, and the **alarm lift request is now with LTO**.`,
+      text: `The **₱1,000.00 eGovPay payment is confirmed**. Your electronic official receipt has been issued, the settlement was posted to the OGA interface, and the **alarm lift request is now with LTO**.`,
       card: {
         kind: "receipt",
         title: "LTO Settlement eReceipt",
@@ -1176,14 +1635,14 @@ export function agentPlan(input: string, user: User): Plan {
           1250
         ),
       ],
-      text: `Your **eGovPay checkout is ready** for case **TRX-LETAS-260210-4507860**. This demo uses a simulated assessed fine of **₱1,000.00**. Review and authorize it below; no real funds will be charged.`,
+      text: `Your **eGovPay checkout is ready** for case **TRX-LETAS-260210-4507860**. The assessed fine is **₱1,000.00**. Review and authorize it below.`,
       card: {
         kind: "payment",
         title: "eGovPay Secure Checkout",
         agency: "Land Transportation Office",
         service: "OGA violation settlement",
         reference: D.ltoPaymentRef,
-        lineItems: [{ label: "Simulated assessed fine", amount: "₱1,000.00" }],
+        lineItems: [{ label: "Assessed OGA fine", amount: "₱1,000.00" }],
         total: "₱1,000.00",
         method: "eGov Pay wallet ·•• 4482",
         action: "Authorize ₱1,000.00",

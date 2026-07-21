@@ -155,7 +155,7 @@ export function SoundEffectsProvider({
     () => ({
       enabled: soundEffectsEnabled,
       theme: "minimal" as const,
-      volume: 0.32,
+      volume: 1.92,
       categories: {
         interaction: true,
         overlay: true,
