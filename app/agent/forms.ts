@@ -14,6 +14,8 @@ export type PrintKind =
   | "dfa-pass"
   | "nbi-form"
   | "nbi-receipt"
+  | "lto-receipt"
+  | "ereport-receipt"
   | "sss-statement"
   | "ph-mdr"
   | "lto-form"
@@ -33,6 +35,8 @@ export const PRINT_FILE_PREVIEWS: Record<
   "dfa-pass": { name: "DFA Appointment Pass.pdf", stampIndex: 1 },
   "nbi-form": { name: "NBI Clearance Application.pdf", stampIndex: 2 },
   "nbi-receipt": { name: "NBI Official Receipt.pdf", stampIndex: 3 },
+  "lto-receipt": { name: "LTO eReceipt.pdf", stampIndex: 0 },
+  "ereport-receipt": { name: "eReport Acknowledgement.pdf", stampIndex: 2 },
   "sss-statement": { name: "SSS Contribution Statement.pdf", stampIndex: 0 },
   "ph-mdr": {
     name: "PhilHealth PMRF.pdf",
@@ -198,6 +202,8 @@ const SEALS = {
   nbi: { initials: "NBI", color: "#1b2a6b", fullName: "National Bureau of Investigation" },
   sss: { initials: "SSS", color: "#003da5", fullName: "Social Security System" },
   phlpost: { initials: "PHL", color: "#8a6d1a", fullName: "Philippine Postal Corporation" },
+  lto: { initials: "LTO", color: "#005b3c", fullName: "Land Transportation Office" },
+  ereport: { initials: "eR", color: "#0a4f9e", fullName: "eGov eReport" },
 };
 
 function generatedSpec(kind: PrintKind, user: PrintUser): GeneratedSpec | null {
@@ -264,8 +270,8 @@ function generatedSpec(kind: PrintKind, user: PrintUser): GeneratedSpec | null {
     case "nbi-receipt":
       return {
         seal: SEALS.nbi,
-        formNo: "OR Series 2026",
-        title: "Official Receipt",
+        formNo: `eOR Series ${D.year}`,
+        title: "Electronic Official Receipt",
         ref: `OR № ${D.orRef}`,
         sections: [
           {
@@ -275,7 +281,8 @@ function generatedSpec(kind: PrintKind, user: PrintUser): GeneratedSpec | null {
               { label: "Service", value: "NBI Clearance (Online)" },
               { label: "Amount", value: "₱180.00" },
               { label: "Method", value: "eGov Pay wallet" },
-              { label: "Date", value: "July 7, 2026" },
+              { label: "eGovPay reference", value: D.nbiPaymentRef },
+              { label: "Date", value: D.todayMDY },
               { label: "Status", value: "Paid — clearance processing" },
             ],
           },
@@ -284,7 +291,71 @@ function generatedSpec(kind: PrintKind, user: PrintUser): GeneratedSpec | null {
           "Digital clearance will be emailed within ~10 minutes",
           "Courier copy follows in 2–3 working days",
         ],
-        note: "This receipt is system-generated and valid without signature. Issued via eGov Agent.",
+        note: "Simulation eReceipt generated after eGovPay payment confirmation. No real funds were charged.",
+      };
+    case "lto-receipt":
+      return {
+        seal: SEALS.lto,
+        formNo: `eOR Series ${D.year}`,
+        title: "Electronic Official Receipt",
+        ref: `OR № ${D.ltoOrRef}`,
+        sections: [
+          {
+            heading: "Payment details",
+            fields: [
+              { label: "Paid by", value: user.name },
+              { label: "Service", value: "LTO OGA violation settlement" },
+              { label: "Case", value: "TRX-LETAS-260210-4507860" },
+              { label: "Amount", value: "₱1,000.00" },
+              { label: "Method", value: "eGov Pay wallet" },
+              { label: "eGovPay reference", value: D.ltoPaymentRef },
+              { label: "Date", value: D.todayMDY },
+              { label: "Status", value: "Paid — alarm lift requested" },
+            ],
+          },
+        ],
+        checks: [
+          "Payment confirmation posted to the OGA interface",
+          "Alarm lift request submitted to LTO",
+        ],
+        note: "Simulation eReceipt generated after eGovPay payment confirmation. No real funds were charged.",
+      };
+    case "ereport-receipt":
+      return {
+        seal: SEALS.ereport,
+        formNo: `eReport Series ${D.year}`,
+        title: "eReport Submission Acknowledgement",
+        ref: D.eReportRef,
+        sections: [
+          {
+            heading: "Incident report",
+            fields: [
+              { label: "Reported by", value: user.name },
+              { label: "Incident", value: "Severe street flooding" },
+              { label: "Priority", value: "URGENT — public safety" },
+              { label: "Location", value: "Pioneer St. near Reliance St., Mandaluyong" },
+              { label: "Coordinates", value: "14.5778, 121.0537" },
+              { label: "Submitted", value: `${D.todayMDY} · ${D.todayTime}` },
+              { label: "Status", value: "Dispatched — tracking active" },
+            ],
+          },
+          {
+            heading: "Multi-agency dispatch",
+            fields: [
+              { label: "Primary responder", value: "Mandaluyong CDRRMO" },
+              { label: "Local desk", value: "Barangay Highway Hills" },
+              { label: "Traffic coordination", value: "MMDA Metrobase" },
+              { label: "Flood-control copy", value: "DPWH NCR" },
+              { label: "Field assessment", value: "Estimated 15–20 minutes" },
+            ],
+          },
+        ],
+        checks: [
+          "Reporter identity verified through PhilSys",
+          "Incident evidence and coordinates attached",
+          "SMS and in-app status notifications enabled",
+        ],
+        note: "Hackathon simulation only. Dispatch acknowledgements and response estimates are mock eReport data.",
       };
     case "sss-statement":
       return {

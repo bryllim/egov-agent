@@ -14,6 +14,13 @@ export type CardBase = {
   printLabel?: string;
 };
 
+export type PaymentLineItem = { label: string; amount: string };
+export type EReportResponder = {
+  agency: string;
+  role: string;
+  status?: string;
+};
+
 export type Card = CardBase &
   (
     | {
@@ -44,6 +51,55 @@ export type Card = CardBase &
         title: string;
         fields: { label: string; value: string }[];
         action: string;
+      }
+    | {
+        kind: "payment";
+        title: string;
+        agency: string;
+        service: string;
+        reference: string;
+        lineItems: PaymentLineItem[];
+        total: string;
+        method: string;
+        action: string;
+      }
+    | {
+        kind: "receipt";
+        title: string;
+        agency: string;
+        service: string;
+        receiptNumber: string;
+        transactionNumber: string;
+        paidAt: string;
+        lineItems: PaymentLineItem[];
+        total: string;
+        method: string;
+        action: string;
+        print: PrintKind;
+      }
+    | {
+        kind: "ereportDraft";
+        title: string;
+        reportType: string;
+        severity: string;
+        location: string;
+        coordinates: string;
+        summary: string;
+        evidence: string;
+        responders: EReportResponder[];
+        action: string;
+      }
+    | {
+        kind: "ereportConfirmation";
+        title: string;
+        reportNumber: string;
+        submittedAt: string;
+        incident: string;
+        location: string;
+        responders: EReportResponder[];
+        eta: string;
+        action: string;
+        print: PrintKind;
       }
     | {
         kind: "ltoViolation";
@@ -100,6 +156,7 @@ export type UserUpload = {
   id: string;
   name: string;
   kind: "file" | "image";
+  preview?: string;
 };
 
 export type Msg = {
@@ -160,6 +217,7 @@ export function readDemoUser(raw: string | null): User | null {
 /* ----------------------------- scripted brain ----------------------------- */
 
 export const SUGGESTIONS = [
+  "File a flooding eReport",
   "Find the nearest DFA office",
   "Renew my passport",
   "Get an NBI clearance",
@@ -247,8 +305,128 @@ export const VAULT_FILES = {
 
 export function agentPlan(input: string, user: User): Plan {
   const q = input.toLowerCase();
+  const hasIncidentPhoto = q.includes("attachments:");
 
   /* ---- follow-up actions triggered by card buttons (checked first) ---- */
+
+  if (q.includes("submit") && q.includes("ereport")) {
+    return {
+      steps: [
+        step(
+          "shield",
+          "Submitting your verified eReport",
+          "eGovPH eReport",
+          `${D.eReportRef} · identity and consent signed`,
+          1050
+        ),
+        step(
+          "records",
+          "Dispatching to local responders",
+          "Mandaluyong CDRRMO",
+          "Incident desk acknowledged · field team notified",
+          1250
+        ),
+        step(
+          "spark",
+          "Opening the multi-agency response channel",
+          "eGov Notify",
+          "4 desks linked · SMS and in-app tracking active",
+          1150
+        ),
+        step(
+          "file",
+          "Issuing your submission acknowledgement",
+          "eGovPH eReport",
+          "Signed acknowledgement ready",
+          950
+        ),
+      ],
+      text: `Your eReport is live, ${user.firstName}. **${D.eReportRef}** was dispatched simultaneously to **Mandaluyong CDRRMO, Barangay Highway Hills, MMDA Metrobase, and DPWH NCR**. The primary incident desk has acknowledged it, a field assessment is estimated in **15–20 minutes**, and I’ll keep one response thread synchronized for you.`,
+      card: {
+        kind: "ereportConfirmation",
+        title: "eReport dispatched",
+        reportNumber: D.eReportRef,
+        submittedAt: `${D.todayMDY} · ${D.todayTime}`,
+        incident: "Severe street flooding · urgent public safety",
+        location: "Pioneer St. near Reliance St., Mandaluyong",
+        responders: [
+          { agency: "Mandaluyong CDRRMO", role: "Primary response", status: "Acknowledged" },
+          { agency: "Barangay Highway Hills", role: "Local verification", status: "Team notified" },
+          { agency: "MMDA Metrobase", role: "Traffic coordination", status: "Advisory queued" },
+          { agency: "DPWH NCR", role: "Flood-control assessment", status: "Report delivered" },
+        ],
+        eta: "15–20 min field assessment",
+        action: "Open eReport acknowledgement",
+        print: "ereport-receipt",
+      },
+    };
+  }
+
+  if (
+    q.includes("ereport") ||
+    (q.includes("report") &&
+      (q.includes("flood") ||
+        q.includes("pioneer") ||
+        q.includes("hazard") ||
+        q.includes("blocked road")))
+  ) {
+    return {
+      steps: [
+        step(
+          "spark",
+          hasIncidentPhoto ? "Analyzing the incident photo" : "Understanding the incident",
+          "eReport AI Triage",
+          hasIncidentPhoto
+            ? "Street flooding detected · roadway likely impassable"
+            : "Severe street flooding · public-safety risk",
+          1150
+        ),
+        step(
+          "search",
+          "Resolving the exact location and jurisdiction",
+          "eGov Geo",
+          "Pioneer × Reliance · Barangay Highway Hills",
+          1350
+        ),
+        step(
+          "records",
+          "Matching the responsible government desks",
+          "DILG Service Directory",
+          "CDRRMO · Barangay · MMDA · DPWH NCR",
+          1400
+        ),
+        step(
+          "shield",
+          "Preparing one consented multi-agency report",
+          "eGovPH eReport",
+          "Draft ready · duplicate dispatch prevented",
+          1050
+        ),
+      ],
+      text: `I classified this as an **urgent public-safety flooding incident**, resolved it to **Pioneer Street near Reliance Street, Barangay Highway Hills**, and prepared one eReport for all four responsible response desks. Review the AI triage below, then submit once—I'll handle the routing and keep their updates in one thread.`,
+      card: {
+        kind: "ereportDraft",
+        title: "eReport AI triage",
+        reportType: "Severe street flooding",
+        severity: "URGENT",
+        location: "Pioneer St. near Reliance St., Mandaluyong",
+        coordinates: "14.5778, 121.0537",
+        summary:
+          "Roadway flooding may be unsafe for pedestrians and light vehicles. Immediate local verification and traffic coordination recommended.",
+        evidence: hasIncidentPhoto
+          ? "1 incident photo analyzed and attached"
+          : "Location and description attached · photo optional",
+        responders: [
+          { agency: "Mandaluyong CDRRMO", role: "Primary response" },
+          { agency: "Barangay Highway Hills", role: "Local verification" },
+          { agency: "MMDA Metrobase", role: "Traffic coordination" },
+          { agency: "DPWH NCR", role: "Flood-control assessment" },
+        ],
+        action: "Submit eReport to 4 response desks",
+        intent: "Submit this flooding eReport to the four response desks",
+      },
+    };
+  }
 
   if (q.includes("confirm") && (q.includes("slot") || q.includes("appointment"))) {
     return {
@@ -291,14 +469,18 @@ export function agentPlan(input: string, user: User): Plan {
     };
   }
 
-  if (q.includes("pay") && (q.includes("nbi") || q.includes("clearance"))) {
+  if (
+    q.includes("confirm") &&
+    q.includes("egovpay") &&
+    (q.includes("nbi") || q.includes("clearance"))
+  ) {
     return {
       steps: [
         step(
           "payment",
-          "Charging your eGov Pay wallet",
+          "Confirming payment with eGovPay",
           "eGov Pay",
-          `₱180.00 paid · OR № ${D.orRef}`,
+          `₱180.00 paid · ${D.nbiPaymentRef}`,
           1200
         ),
         step(
@@ -316,18 +498,63 @@ export function agentPlan(input: string, user: User): Plan {
           1200
         ),
       ],
-      text: `Payment received — **₱180.00** charged to your eGov Pay wallet. Your NBI Clearance is being generated now; the **digital copy lands in your email in about 10 minutes**, and the courier copy follows in **2–3 days**. Here's your official receipt.`,
+      text: `Payment confirmed — **₱180.00** was processed through the simulated eGovPay checkout. Your **electronic official receipt has been issued below**, and your NBI Clearance is now being generated. The digital copy lands in your email in about **10 minutes**.`,
       card: {
-        kind: "record",
-        title: "NBI Clearance — Official Receipt",
-        fields: [
-          { label: "OR number", value: D.orRef },
-          { label: "Amount paid", value: "₱180.00" },
-          { label: "Paid via", value: "eGov Pay wallet" },
-          { label: "Status", value: "Processing · ~10 mins" },
+        kind: "receipt",
+        title: "NBI Clearance eReceipt",
+        agency: "National Bureau of Investigation",
+        service: "NBI Clearance — Online",
+        receiptNumber: D.orRef,
+        transactionNumber: D.nbiPaymentRef,
+        paidAt: `${D.todayMDY} · 10:42 AM`,
+        lineItems: [
+          { label: "NBI clearance fee", amount: "₱155.00" },
+          { label: "e-payment fee", amount: "₱25.00" },
         ],
+        total: "₱180.00",
+        method: "eGov Pay wallet ·•• 4482",
         action: "Preview official receipt",
         print: "nbi-receipt",
+      },
+    };
+  }
+
+  if (
+    (q.includes("pay") || q.includes("checkout")) &&
+    (q.includes("nbi") || q.includes("clearance"))
+  ) {
+    return {
+      steps: [
+        step(
+          "payment",
+          "Creating a secure eGovPay checkout",
+          "eGov Pay",
+          `Payment order ready · ${D.nbiPaymentRef}`,
+          1050
+        ),
+        step(
+          "records",
+          "Linking the payment to your application",
+          "NBI",
+          `${D.nbiAppRef} · awaiting authorization`,
+          1150
+        ),
+      ],
+      text: `Your **eGovPay checkout is ready** for the NBI Clearance application. Review the fee breakdown and authorize the simulated payment below. No real funds will be charged in this demo.`,
+      card: {
+        kind: "payment",
+        title: "eGovPay Secure Checkout",
+        agency: "National Bureau of Investigation",
+        service: "NBI Clearance — Online",
+        reference: D.nbiPaymentRef,
+        lineItems: [
+          { label: "NBI clearance fee", amount: "₱155.00" },
+          { label: "e-payment fee", amount: "₱25.00" },
+        ],
+        total: "₱180.00",
+        method: "eGov Pay wallet ·•• 4482",
+        action: "Authorize ₱180.00",
+        intent: "Confirm eGovPay payment for my NBI clearance",
       },
     };
   }
@@ -714,8 +941,8 @@ export function agentPlan(input: string, user: User): Plan {
           "Digital copy + courier delivery available",
         ],
         fee: "₱155.00 + ₱25.00 e-payment fee",
-        action: "Pay with eGov Pay",
-        intent: "Pay the NBI clearance fee with eGov Pay",
+        action: "Continue with eGovPay",
+        intent: "Open eGovPay checkout for my NBI clearance",
         print: "nbi-form",
         printLabel: "Preview pre-filled application",
       },
@@ -882,6 +1109,53 @@ export function agentPlan(input: string, user: User): Plan {
   }
 
   if (
+    q.includes("confirm") &&
+    q.includes("egovpay") &&
+    (q.includes("lto") || q.includes("oga") || q.includes("violation"))
+  ) {
+    return {
+      steps: [
+        step(
+          "payment",
+          "Confirming payment with eGovPay",
+          "eGov Pay",
+          `₱1,000.00 paid · ${D.ltoPaymentRef}`,
+          1150
+        ),
+        step(
+          "records",
+          "Posting the settlement to OGA",
+          "LTO Violations",
+          "Payment confirmed · case settled",
+          1250
+        ),
+        step(
+          "shield",
+          "Submitting the alarm lift request",
+          "LTO",
+          "Request sent · transactions pending reopen",
+          1150
+        ),
+      ],
+      text: `The simulated **₱1,000.00 eGovPay payment is confirmed**. Your electronic official receipt has been issued, the settlement was posted to the OGA interface, and the **alarm lift request is now with LTO**.`,
+      card: {
+        kind: "receipt",
+        title: "LTO Settlement eReceipt",
+        agency: "Land Transportation Office",
+        service: "OGA violation settlement",
+        receiptNumber: D.ltoOrRef,
+        transactionNumber: D.ltoPaymentRef,
+        paidAt: `${D.todayMDY} · 10:42 AM`,
+        lineItems: [{ label: "Assessed OGA fine", amount: "₱1,000.00" }],
+        total: "₱1,000.00",
+        method: "eGov Pay wallet ·•• 4482",
+        action: "Preview electronic receipt",
+        print: "lto-receipt",
+      },
+    };
+  }
+
+  if (
     (q.includes("pay") || q.includes("payment") || q.includes("proceed")) &&
     (q.includes("lto") || q.includes("oga") || q.includes("violation"))
   ) {
@@ -889,27 +1163,32 @@ export function agentPlan(input: string, user: User): Plan {
       steps: [
         step(
           "payment",
-          "Opening the settlement channel",
+          "Creating a secure eGovPay checkout",
           "eGov Pay",
-          "LTO OGA case linked · payment window prepared",
+          `Payment order ready · ${D.ltoPaymentRef}`,
           1100
         ),
         step(
           "records",
-          "Notifying OGA interface",
+          "Linking the payment to OGA",
           "LTO Violations",
-          "Case TRX-LETAS-260210-4507860 queued for settlement",
-          1300
-        ),
-        step(
-          "shield",
-          "Preparing alarm lift request",
-          "LTO",
-          "Transactions unlock after OGA payment confirmation",
-          1150
+          "Case TRX-LETAS-260210-4507860 · awaiting authorization",
+          1250
         ),
       ],
-      text: `I prepared the payment handoff for case **TRX-LETAS-260210-4507860**. Once the OGA payment is confirmed, the **alarm lift request** is sent back to LTO so your **blocked transactions can reopen**.`,
+      text: `Your **eGovPay checkout is ready** for case **TRX-LETAS-260210-4507860**. This demo uses a simulated assessed fine of **₱1,000.00**. Review and authorize it below; no real funds will be charged.`,
+      card: {
+        kind: "payment",
+        title: "eGovPay Secure Checkout",
+        agency: "Land Transportation Office",
+        service: "OGA violation settlement",
+        reference: D.ltoPaymentRef,
+        lineItems: [{ label: "Simulated assessed fine", amount: "₱1,000.00" }],
+        total: "₱1,000.00",
+        method: "eGov Pay wallet ·•• 4482",
+        action: "Authorize ₱1,000.00",
+        intent: "Confirm eGovPay payment for my LTO OGA violation",
+      },
     };
   }
 

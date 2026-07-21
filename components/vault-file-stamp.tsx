@@ -6,9 +6,15 @@ type VaultFileStampProps = {
   name: string;
   preview?: string;
   index: number;
+  label?: string;
 };
 
-export function VaultFileStamp({ name, preview, index }: VaultFileStampProps) {
+export function VaultFileStamp({
+  name,
+  preview,
+  index,
+  label,
+}: VaultFileStampProps) {
   const extension = name.split(".").pop()?.slice(0, 4).toUpperCase() ?? "FILE";
 
   return (
@@ -35,8 +41,15 @@ export function VaultFileStamp({ name, preview, index }: VaultFileStampProps) {
           </div>
         )}
       </div>
-      <span className="font-pixel absolute -bottom-1 -right-1 bg-[#0a4f9e] px-1.5 py-0.5 text-[7px] uppercase tracking-[0.08em] text-white shadow-[0_3px_8px_-4px_rgba(6,61,125,0.8)]">
-        {extension}
+      <span
+        title={label}
+        className={`absolute -bottom-1 bg-[#0a4f9e] text-white shadow-[0_3px_8px_-4px_rgba(6,61,125,0.8)] ${
+          label
+            ? "left-1 max-w-[76px] truncate px-1.5 py-1 text-[8px] font-semibold leading-none"
+            : "font-pixel -right-1 px-1.5 py-0.5 text-[7px] uppercase tracking-[0.08em]"
+        }`}
+      >
+        {label ?? extension}
       </span>
     </div>
   );

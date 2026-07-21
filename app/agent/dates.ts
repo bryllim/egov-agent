@@ -45,6 +45,10 @@ function monthYear(d: Date) {
   return d.toLocaleDateString("en-US", { month: "long", year: "numeric" });
 }
 
+function time(d: Date) {
+  return d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+}
+
 function ordinal(n: number) {
   const s = ["th", "st", "nd", "rd"];
   const v = n % 100;
@@ -73,6 +77,7 @@ export const DEMO_DATES = {
   /* today */
   todayLong: long(now),
   todayMDY: monthDayYear(now),
+  todayTime: time(now),
   year: String(now.getFullYear()),
 
   /* DFA passport appointment (today + 14) */
@@ -105,5 +110,9 @@ export const DEMO_DATES = {
   /* NBI payment (today) */
   orRef: `${now.getFullYear()}-${mmdd(now)}-8812`,
   nbiAppRef: `NBI-${now.getFullYear()}-${mmdd(now)}-5521`,
+  nbiPaymentRef: `EGP-NBI-${yymmdd(now)}-5521`,
+  ltoOrRef: `${now.getFullYear()}-${mmdd(now)}-6194`,
+  ltoPaymentRef: `EGP-LTO-${yymmdd(now)}-6194`,
+  eReportRef: `ERPT-MND-${yymmdd(now)}-0427`,
   mdrRef: `MDR-${now.getFullYear()}-${mmdd(now)}-3318`,
 };

@@ -58,6 +58,44 @@ function latestMessageId(messages: Msg[]) {
   return messages.reduce((latest, message) => Math.max(latest, message.id), 0);
 }
 
+function ComposerUploadStamp({
+  upload,
+  index,
+  onRemove,
+}: {
+  upload: UserUpload;
+  index: number;
+  onRemove: () => void;
+}) {
+  return (
+    <div
+      role="group"
+      aria-label={`Attached ${upload.kind}: ${upload.name}`}
+      title={upload.name}
+      style={{ animationDelay: `${index * 60}ms` }}
+      className="animate-card-in group relative flex h-[96px] w-[94px] shrink-0 items-start justify-center pt-1"
+    >
+      <VaultFileStamp
+        name={upload.name}
+        preview={upload.preview}
+        index={index}
+        label={upload.name}
+      />
+      <button
+        type="button"
+        aria-label={`Remove ${upload.name}`}
+        title={`Remove ${upload.name}`}
+        onClick={onRemove}
+        className="absolute right-0 top-0 flex h-10 w-10 cursor-pointer items-center justify-center text-slate-400 transition-[color,transform] duration-150 hover:text-slate-700 active:scale-[0.96] active:text-[#0a4f9e]"
+      >
+        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-white shadow-[0_0_0_1px_oklch(0_0_0/0.06),0_4px_12px_-6px_oklch(0_0_0/0.35)]">
+          <X size={12} />
+        </span>
+      </button>
+    </div>
+  );
+}
+
 /* --------------------------------- page ----------------------------------- */
 
 export default function AgentPage() {
@@ -294,8 +332,17 @@ export default function AgentPage() {
         id: crypto.randomUUID(),
         name: file.name,
         kind,
+        preview: kind === "image" ? URL.createObjectURL(file) : undefined,
       }));
-      setPendingUploads((current) => [...current, ...additions].slice(0, 8));
+      setPendingUploads((current) => {
+        const next = [...current, ...additions];
+        next
+          .slice(8)
+          .forEach((upload) =>
+            upload.preview ? URL.revokeObjectURL(upload.preview) : undefined
+          );
+        return next.slice(0, 8);
+      });
       void playSound("interaction.subtle");
     },
     [playSound]
@@ -377,9 +424,9 @@ export default function AgentPage() {
                 Mabuhay,{" "}
                 <span className="text-[#0a4f9e]">{user.firstName}</span>!
               </h2>
-              <p className="animate-fade-up delay-200 mt-3 max-w-md text-[17px] leading-relaxed text-slate-500">
-                Passports, clearances, contributions, licenses — just ask,
-                and I&apos;ll take care of it.
+              <p className="animate-fade-up delay-200 mt-3 max-w-md text-pretty text-[17px] leading-relaxed text-slate-500">
+                Ask for anything you need from government — I&apos;ll understand
+                your goal, coordinate the right services, and handle the steps.
               </p>
               <div className="animate-fade-up delay-300 mt-6">
                 <TodayChip />
@@ -398,19 +445,22 @@ export default function AgentPage() {
                         {m.text}
                       </div>
                       {m.uploads && (
-                        <div className="mt-2 flex flex-wrap justify-end gap-1.5">
-                          {m.uploads.map((upload) => (
-                            <span
+                        <div className="mt-2 flex flex-wrap justify-end gap-2 pr-1">
+                          {m.uploads.map((upload, index) => (
+                            <div
                               key={upload.id}
-                              className="inline-flex max-w-52 items-center gap-1.5 rounded-full bg-white px-2.5 py-1.5 text-[11.5px] font-medium text-slate-500 shadow-[0_5px_14px_-9px_rgba(6,61,125,0.45)]"
+                              role="group"
+                              aria-label={`Attached ${upload.kind}: ${upload.name}`}
+                              title={upload.name}
+                              className="group flex h-[96px] w-[94px] items-start justify-center pt-1"
                             >
-                              {upload.kind === "image" ? (
-                                <ImagePlus size={12} className="shrink-0 text-[#0a4f9e]" />
-                              ) : (
-                                <Paperclip size={12} className="shrink-0 text-[#0a4f9e]" />
-                              )}
-                              <span className="truncate">{upload.name}</span>
-                            </span>
+                              <VaultFileStamp
+                                name={upload.name}
+                                preview={upload.preview}
+                                index={index}
+                                label={upload.name}
+                              />
+                            </div>
                           ))}
                         </div>
                       )}
@@ -500,31 +550,22 @@ export default function AgentPage() {
       <div className="bg-[#f7faff]/90 px-6 pb-6 pt-2 backdrop-blur">
         <div className="hairline mx-auto flex min-h-[116px] w-full max-w-2xl flex-col rounded-[28px] bg-white p-3">
           {pendingUploads.length > 0 && (
-            <div className="mb-1 flex flex-wrap gap-1.5 px-1">
-              {pendingUploads.map((upload) => (
-                <span
+            <div
+              className="scrollbar-subtle mb-2 flex max-w-full gap-2 overflow-x-auto overscroll-x-contain px-1 pb-2 pt-1"
+              aria-label="Pending attachments"
+            >
+              {pendingUploads.map((upload, index) => (
+                <ComposerUploadStamp
                   key={upload.id}
-                  className="inline-flex max-w-56 items-center gap-1 rounded-full bg-[#f3f7fc] pl-2.5 text-[11.5px] font-medium text-slate-500"
-                >
-                  {upload.kind === "image" ? (
-                    <ImagePlus size={12} className="shrink-0 text-[#0a4f9e]" />
-                  ) : (
-                    <Paperclip size={12} className="shrink-0 text-[#0a4f9e]" />
-                  )}
-                  <span className="truncate">{upload.name}</span>
-                  <button
-                    type="button"
-                    aria-label={`Remove ${upload.name}`}
-                    onClick={() =>
-                      setPendingUploads((current) =>
-                        current.filter((item) => item.id !== upload.id)
-                      )
-                    }
-                    className="flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-full text-slate-400 transition-colors duration-150 hover:bg-slate-200/70 hover:text-slate-600 active:text-[#0a4f9e]"
-                  >
-                    <X size={13} />
-                  </button>
-                </span>
+                  upload={upload}
+                  index={index}
+                  onRemove={() => {
+                    if (upload.preview) URL.revokeObjectURL(upload.preview);
+                    setPendingUploads((current) =>
+                      current.filter((item) => item.id !== upload.id)
+                    );
+                  }}
+                />
               ))}
             </div>
           )}
@@ -939,6 +980,27 @@ function DemoGuideModal({
             pays, and hands you preview-ready documents.&rdquo;
           </p>
 
+          <div className="mt-4 bg-[linear-gradient(135deg,#eef6ff,#f0fdfa)] px-4 py-4 shadow-[0_0_0_1px_oklch(0_0_0/0.05),0_10px_30px_-24px_rgba(6,61,125,0.5)]">
+            <div className="flex items-center gap-2 text-[#0a4f9e]">
+              <Zap size={15} />
+              <span className="font-pixel text-[9px] uppercase tracking-[0.16em]">
+                New wow flow — eReport
+              </span>
+            </div>
+            <p className="mt-2 text-[12.5px] leading-relaxed text-slate-600">
+              Optionally attach any flooding photo, then type{" "}
+              <TypeThis>
+                There&apos;s severe flooding on Pioneer Street near Reliance in
+                Mandaluyong. File an eReport and alert the right responders.
+              </TypeThis>
+            </p>
+            <p className="mt-2 text-[11.5px] leading-relaxed text-slate-500">
+              Let the AI triage and four-agency routing land, click{" "}
+              <strong>Submit eReport to 4 response desks</strong>, then open the
+              issued acknowledgement stamp.
+            </p>
+          </div>
+
           <div className="grid gap-x-8 sm:grid-cols-2">
             <div>
               <GuideHeading>Act 1 — The hero flow (~90s)</GuideHeading>
@@ -974,8 +1036,9 @@ function DemoGuideModal({
                 <GuideStep n={5}>
                   Click <TypeThis>New conversation</TypeThis>, type{" "}
                   <TypeThis>Get an NBI clearance</TypeThis>, then click{" "}
-                  <TypeThis>Pay with eGov Pay</TypeThis> — an official receipt
-                  appears. Preview it too.
+                  <TypeThis>Continue with eGovPay</TypeThis>, review the
+                  checkout, and authorize the demo payment. Open the issued
+                  e-receipt stamp too.
                 </GuideStep>
                 <GuideStep n={6}>
                   New conversation →{" "}
@@ -1010,8 +1073,8 @@ function DemoGuideModal({
                   <TypeThis>TRX-LETAS-260210-4507860</TypeThis>,{" "}
                   <TypeThis>5.STS-8 Obstruction</TypeThis>, status{" "}
                   <TypeThis>PENDING</TypeThis>, source <TypeThis>OGA</TypeThis>.
-                  Click <TypeThis>Proceed to Payment</TypeThis> to show the
-                  settlement handoff.
+                  Click <TypeThis>Proceed to Payment</TypeThis>, authorize the
+                  demo checkout, then open the issued LTO e-receipt stamp.
                 </GuideStep>
               </ol>
 
@@ -1039,6 +1102,11 @@ function DemoGuideModal({
           </GuideHeading>
           <div className="grid gap-2.5 sm:grid-cols-2">
             <ScenarioCard
+              phrase="There's severe flooding on Pioneer Street near Reliance in Mandaluyong. File an eReport and alert the right responders."
+              result="AI incident triage + evidence analysis + exact jurisdiction resolution, followed by one coordinated draft for CDRRMO, the barangay, MMDA, and DPWH."
+              chain="Submit eReport to 4 response desks → live dispatch statuses → mock 15–20 minute assessment ETA → open the acknowledgement stamp."
+            />
+            <ScenarioCard
               phrase="Find the nearest DFA office"
               result="4-agency run (PhilSys → PSA → DFA → rank), then a live map of 5 passport sites with your location and the recommended pin."
               chain={`Book Megamall · ${D.dfaShort}, 10:30 AM → booking confirmation → Preview appointment pass.`}
@@ -1051,7 +1119,7 @@ function DemoGuideModal({
             <ScenarioCard
               phrase="Get an NBI clearance"
               result="Fully-online checklist: biometrics on file, purpose, fees."
-              chain="Pay with eGov Pay → official receipt card → Preview official receipt or the application form."
+              chain="Continue with eGovPay → review checkout → authorize → open the issued e-receipt stamp."
             />
             <ScenarioCard
               phrase="Check my SSS contributions"
@@ -1071,7 +1139,7 @@ function DemoGuideModal({
             <ScenarioCard
               phrase="Check if I have any LTO violations"
               result="OGA alarm case card — TRX-LETAS case no., 5.STS-8 Obstruction, PENDING, all LTO transactions blocked."
-              chain="Proceed to Payment → settlement handoff + alarm-lift request."
+              chain="Proceed to Payment → authorize checkout → issued e-receipt + alarm-lift request."
             />
             <ScenarioCard
               phrase="Apply for a Postal ID"
@@ -1392,7 +1460,7 @@ function ActionButton({
     <button
       type="button"
       onClick={onClick}
-      className="bg-brand-gradient flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl py-3 text-[14.5px] font-medium text-white shadow-[0_12px_26px_-12px_rgba(6,61,125,0.55)] transition hover:opacity-90 active:scale-[0.99]"
+      className="bg-brand-gradient flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl py-3 text-[14.5px] font-medium text-white shadow-[0_12px_26px_-12px_rgba(6,61,125,0.55)] transition-[opacity,transform] duration-150 hover:opacity-90 active:scale-[0.96]"
     >
       {children}
     </button>
@@ -1471,6 +1539,357 @@ function ServiceCard({
         />
       </div>
     ) : null;
+
+  if (card.kind === "ereportDraft") {
+    return (
+      <div className="max-w-xl overflow-hidden rounded-2xl bg-white shadow-[0_18px_44px_-26px_rgba(6,61,125,0.45)]">
+        <div className="relative overflow-hidden bg-[linear-gradient(135deg,#073b7a_0%,#0a62ad_52%,#1595c8_100%)] px-5 py-5 text-white">
+          <div className="relative flex items-start gap-3">
+            <FileText size={24} className="mt-0.5 shrink-0 text-white/90" />
+            <div className="min-w-0">
+              <div className="font-pixel text-[9px] uppercase tracking-[0.18em] text-white/70">
+                One report · coordinated response
+              </div>
+              <div className="mt-1 text-[21px] font-semibold leading-tight">
+                {card.title}
+              </div>
+            </div>
+            <span className="font-pixel ml-auto flex shrink-0 items-center gap-1.5 rounded-full bg-red-500 px-2.5 py-1 text-[8.5px] uppercase tracking-[0.14em] text-white shadow-[0_6px_18px_-10px_rgba(127,29,29,0.9)]">
+              {card.severity}
+            </span>
+          </div>
+          <div className="relative mt-4 flex items-start gap-2.5 bg-white/10 px-3.5 py-3 backdrop-blur-sm">
+            <MapPin size={16} className="mt-0.5 shrink-0 text-cyan-200" />
+            <div className="min-w-0">
+              <div className="text-[13.5px] font-medium">{card.location}</div>
+              <div className="mt-0.5 font-mono text-[10.5px] text-white/60">
+                {card.coordinates} · jurisdiction resolved
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="px-5 py-4">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            <div>
+              <FieldLabel>Incident</FieldLabel>
+              <div className="mt-1 text-[13px] font-semibold text-slate-700">
+                {card.reportType}
+              </div>
+            </div>
+            <div>
+              <FieldLabel>AI confidence</FieldLabel>
+              <div className="mt-1 text-[13px] font-semibold tabular-nums text-[#0a4f9e]">
+                94%
+              </div>
+            </div>
+            <div className="col-span-2 sm:col-span-1">
+              <FieldLabel>Evidence</FieldLabel>
+              <div className="mt-1 text-[12px] font-medium leading-snug text-slate-600">
+                {card.evidence}
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-4 bg-amber-50/80 px-4 py-3.5">
+            <div className="flex items-center gap-2 text-amber-800">
+              <CircleAlert size={15} />
+              <span className="font-pixel text-[8.5px] uppercase tracking-[0.15em]">
+                AI incident assessment
+              </span>
+            </div>
+            <p className="mt-2 text-[13px] leading-relaxed text-amber-950/75">
+              {card.summary}
+            </p>
+          </div>
+
+          <div className="mt-4 flex items-center justify-between gap-3">
+            <FieldLabel>Response desks selected</FieldLabel>
+            <span className="font-pixel text-[8px] uppercase tracking-[0.12em] text-emerald-600">
+              Duplicate routing prevented
+            </span>
+          </div>
+          <div className="mt-2 grid gap-2 sm:grid-cols-2">
+            {card.responders.map((responder, index) => (
+              <div
+                key={responder.agency}
+                style={{ animationDelay: `${index * 70}ms` }}
+                className="animate-result-in flex items-center gap-2.5 bg-[#f7faff] px-3 py-2.5"
+              >
+                <span className="font-pixel w-5 shrink-0 text-[8px] tracking-[0.1em] text-[#0a4f9e]/55">
+                  {String(index + 1).padStart(2, "0")}
+                </span>
+                <span className="min-w-0">
+                  <span className="block truncate text-[11.5px] font-semibold text-slate-700">
+                    {responder.agency}
+                  </span>
+                  <span className="mt-0.5 block truncate text-[10px] text-slate-400">
+                    {responder.role}
+                  </span>
+                </span>
+                <Check size={12} className="ml-auto shrink-0 text-emerald-500" />
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-4">
+            <ActionButton onClick={primary}>
+              <ShieldCheck size={16} /> {card.action}
+            </ActionButton>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (card.kind === "ereportConfirmation") {
+    return (
+      <div className="max-w-xl overflow-hidden rounded-2xl bg-white shadow-[0_18px_44px_-26px_rgba(6,61,125,0.45)]">
+        <div className="relative overflow-hidden bg-[linear-gradient(135deg,#047857_0%,#059669_55%,#0d9488_100%)] px-5 py-5 text-white">
+          <div className="relative flex items-center gap-3.5">
+            <Check size={28} strokeWidth={3.2} className="shrink-0 text-white" />
+            <div className="min-w-0">
+              <div className="font-pixel text-[9px] uppercase tracking-[0.18em] text-white/70">
+                eGovPH coordinated response
+              </div>
+              <div className="mt-1 text-[21px] font-semibold leading-tight">
+                {card.title}
+              </div>
+            </div>
+          </div>
+          <div className="relative mt-4 flex items-center justify-between gap-3 bg-black/10 px-3.5 py-3">
+            <span className="font-pixel text-[8px] uppercase tracking-[0.14em] text-white/60">
+              Report number
+            </span>
+            <span className="truncate font-mono text-[13px] font-semibold tracking-wide">
+              {card.reportNumber}
+            </span>
+          </div>
+        </div>
+
+        <div className="px-5 py-4">
+          <div className="flex items-start gap-2.5">
+            <MapPin size={15} className="mt-0.5 shrink-0 text-[#0a4f9e]" />
+            <div>
+              <div className="text-[13.5px] font-semibold text-slate-700">
+                {card.incident}
+              </div>
+              <div className="mt-0.5 text-[11.5px] text-slate-400">
+                {card.location} · submitted {card.submittedAt}
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-4 flex items-center gap-2">
+            <Zap size={14} className="text-emerald-600" />
+            <FieldLabel>Four desks dispatched simultaneously</FieldLabel>
+          </div>
+          <div className="mt-2">
+            {card.responders.map((responder, index) => (
+              <div
+                key={responder.agency}
+                style={{ animationDelay: `${index * 80}ms` }}
+                className="animate-result-in relative flex gap-3 pb-3 last:pb-0"
+              >
+                {index < card.responders.length - 1 && (
+                  <span className="absolute bottom-0 left-[7px] top-6 w-px bg-emerald-200" />
+                )}
+                <Check
+                  size={15}
+                  strokeWidth={3.2}
+                  className="relative z-10 mt-0.5 shrink-0 text-emerald-600"
+                />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="truncate text-[12.5px] font-semibold text-slate-700">
+                      {responder.agency}
+                    </span>
+                    <span className="font-pixel ml-auto shrink-0 rounded-full bg-emerald-50 px-2 py-0.5 text-[7.5px] uppercase tracking-[0.1em] text-emerald-600">
+                      {responder.status}
+                    </span>
+                  </div>
+                  <div className="mt-0.5 text-[10.5px] text-slate-400">
+                    {responder.role}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-4 flex items-center gap-3 bg-emerald-50/80 px-4 py-3">
+            <Clock size={17} className="shrink-0 text-emerald-600" />
+            <div>
+              <FieldLabel>Next expected update</FieldLabel>
+              <div className="mt-1 text-[13px] font-semibold text-emerald-700">
+                {card.eta}
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-2">
+            <PreviewStampButton
+              kind={card.print}
+              label={card.action}
+              onClick={() => previewForm(card.print, user)}
+            />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (card.kind === "payment") {
+    return (
+      <CardShell
+        icon={<AgencySeal label="eGov Pay" size={20} />}
+        title={card.title}
+        tag="Simulation"
+      >
+        <div className="px-5 py-4">
+          <div className="flex items-center gap-3">
+            <AgencySeal label={card.agency} size={38} />
+            <div className="min-w-0">
+              <div className="truncate text-[15px] font-semibold text-slate-800">
+                {card.service}
+              </div>
+              <div className="mt-0.5 truncate text-[12.5px] text-slate-400">
+                {card.agency}
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-4 space-y-2.5 bg-[#f7faff] px-4 py-3.5">
+            {card.lineItems.map((item) => (
+              <div
+                key={item.label}
+                className="flex items-center justify-between gap-3 text-[13.5px]"
+              >
+                <span className="text-slate-500">{item.label}</span>
+                <span className="font-medium tabular-nums text-slate-700">
+                  {item.amount}
+                </span>
+              </div>
+            ))}
+            <div className="flex items-end justify-between gap-3 border-t border-slate-200/70 pt-3">
+              <div>
+                <FieldLabel>Total due</FieldLabel>
+                <div className="mt-1 text-[11.5px] text-slate-400">
+                  {card.method}
+                </div>
+              </div>
+              <span className="text-[21px] font-bold tabular-nums text-[#0a4f9e]">
+                {card.total}
+              </span>
+            </div>
+          </div>
+
+          <div className="mt-3 flex items-start gap-2.5 bg-amber-50/80 px-3.5 py-3 text-[12px] leading-relaxed text-amber-800">
+            <ShieldCheck size={15} className="mt-0.5 shrink-0" />
+            <span>
+              Demo checkout only. No real funds will be charged or transferred.
+            </span>
+          </div>
+
+          <div className="mt-4">
+            <ActionButton onClick={primary}>
+              <ShieldCheck size={16} /> {card.action}
+            </ActionButton>
+          </div>
+          <div className="mt-3 flex items-center justify-between gap-3 text-[10.5px] text-slate-400">
+            <span>Payment reference</span>
+            <span className="truncate font-mono font-medium text-slate-500">
+              {card.reference}
+            </span>
+          </div>
+        </div>
+      </CardShell>
+    );
+  }
+
+  if (card.kind === "receipt") {
+    return (
+      <CardShell
+        icon={<AgencySeal label="eGov Pay" size={20} />}
+        title={card.title}
+        tag="eReceipt issued"
+      >
+        <div className="px-5 py-4">
+          <div className="flex items-center gap-3">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-white shadow-[0_10px_24px_-12px_rgba(16,185,129,0.8)]">
+              <Check size={20} strokeWidth={3} />
+            </span>
+            <div className="min-w-0">
+              <div className="text-[15px] font-semibold text-slate-800">
+                Payment confirmed
+              </div>
+              <div className="mt-0.5 truncate text-[12.5px] text-slate-400">
+                {card.service} · {card.agency}
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 bg-[#f7faff] px-4 py-3.5">
+            <div>
+              <FieldLabel>Receipt no.</FieldLabel>
+              <div className="mt-1 font-mono text-[12px] font-medium text-slate-700">
+                {card.receiptNumber}
+              </div>
+            </div>
+            <div>
+              <FieldLabel>Paid at</FieldLabel>
+              <div className="mt-1 text-[12px] font-medium text-slate-700">
+                {card.paidAt}
+              </div>
+            </div>
+            <div className="col-span-2">
+              <FieldLabel>eGovPay reference</FieldLabel>
+              <div className="mt-1 truncate font-mono text-[12px] font-medium text-slate-700">
+                {card.transactionNumber}
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-4 space-y-2.5">
+            {card.lineItems.map((item) => (
+              <div
+                key={item.label}
+                className="flex items-center justify-between gap-3 text-[13.5px]"
+              >
+                <span className="text-slate-500">{item.label}</span>
+                <span className="font-medium tabular-nums text-slate-700">
+                  {item.amount}
+                </span>
+              </div>
+            ))}
+            <div className="flex items-end justify-between gap-3 border-t border-slate-100 pt-3">
+              <div>
+                <FieldLabel>Total paid</FieldLabel>
+                <div className="mt-1 text-[11.5px] text-slate-400">
+                  {card.method}
+                </div>
+              </div>
+              <span className="text-[21px] font-bold tabular-nums text-emerald-600">
+                {card.total}
+              </span>
+            </div>
+          </div>
+
+          <div className="mt-3 bg-slate-50 px-3.5 py-2.5 text-[11px] leading-relaxed text-slate-500">
+            Simulation eReceipt · issued after simulated payment confirmation ·
+            no real funds charged
+          </div>
+
+          <div className="mt-2">
+            <PreviewStampButton
+              kind={card.print}
+              label={card.action}
+              onClick={() => previewForm(card.print, user)}
+            />
+          </div>
+        </div>
+      </CardShell>
+    );
+  }
 
   if (card.kind === "appointment") {
     const tile = dateTile(card.date);
