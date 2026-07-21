@@ -163,18 +163,9 @@ export const SUGGESTIONS = [
 ];
 
 export const RECENT_CONVERSATIONS = [
-  "Can you help me renew my passport?",
-  "Check if I have any LTO violations",
-  "Please show my PhilHealth member record.",
-  "Find the nearest DFA office with open slots",
-  "What documents do I need for an NBI clearance?",
-  "Check my SSS contribution history",
-  "Help me prepare a Postal ID application",
-  "Can you fill out my LTO renewal form?",
-  "Show my encrypted vault documents",
-  "What government services can I finish online?",
-  "Schedule a passport appointment for next week",
-  "Do I have enough PhilHealth contributions?",
+  "Update my voter registration address",
+  "Request a PSA birth certificate",
+  "Check my Pag-IBIG MP2 savings",
 ];
 
 export const SEED_ELAPSED = ["11.2s", "9.8s", "12.6s", "10.4s", "13.1s"];

@@ -142,14 +142,13 @@ export default function IntroPage() {
 
       {/* Loading overlay */}
       {verifying && (
-        <div className="animate-fade-in fixed inset-0 z-50 flex flex-col items-center justify-center bg-white/90 backdrop-blur-xl">
-          <div className="relative flex h-28 w-28 items-center justify-center">
-            <div className="animate-spin-slow absolute inset-0 rounded-full border-2 border-[#0a4f9e]/10 border-t-[#063d7d]" />
-            <AgentMark size={64} />
+        <div className="animate-fade-in fixed inset-0 z-50 grid place-items-center bg-white/90 backdrop-blur-xl">
+          <div className="animate-intro-logo-spin grid h-28 w-28 place-items-center">
+            <AgentMark size={96} />
           </div>
           <div
             aria-live="polite"
-            className="font-pixel mt-9 text-[13px] uppercase tracking-[0.18em] text-slate-600"
+            className="animate-intro-loading-shimmer font-pixel absolute top-[calc(50%+88px)] text-[13px] font-bold uppercase tracking-[0.18em]"
           >
             Loading...
           </div>

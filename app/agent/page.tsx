@@ -216,14 +216,20 @@ export default function AgentPage() {
         });
 
         let elapsed = 0;
-        steps.forEach((s, index) => {
-          elapsed += s.base;
+        steps.forEach((step, index) => {
+          elapsed += step.base;
           agentTimersRef.current.push(
             setTimeout(
-              () =>
+              () => {
+                void playSound(
+                  index === steps.length - 1
+                    ? "interaction.confirm"
+                    : "interaction.subtle"
+                );
                 setAgentProgress((p) =>
                   p ? { ...p, currentIndex: index + 1 } : p
-                ),
+                );
+              },
               elapsed
             )
           );
