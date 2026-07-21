@@ -1,18 +1,7 @@
 "use client";
 
-import Image from "next/image";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  useSyncExternalStore,
-} from "react";
-import { useRouter } from "next/navigation";
-import {
-  BadgeCheck,
-  Bot,
   CalendarDays,
   Check,
   ChevronDown,
@@ -25,819 +14,61 @@ import {
   FileText,
   Fingerprint,
   HelpCircle,
+  Image as ImageIcon,
   Landmark,
-  LogOut,
   Mail,
   MapPin,
   Mic,
-  MessageCircle,
-  PanelLeftClose,
-  PanelLeftOpen,
   Phone,
   Printer,
   Search,
   ShieldCheck,
-  Sparkles,
-  SquarePen,
   X,
+  Zap,
 } from "lucide-react";
-import { AgentMark, AgentWordmark } from "@/components/brand";
-import { printForm, type PrintKind } from "./forms";
-
-/* ---------------------------------- types --------------------------------- */
-
-/* Buttons on a card can continue the conversation (intent) and/or print a
-   pre-filled government form (print). */
-type CardBase = {
-  intent?: string;
-  print?: PrintKind;
-  printLabel?: string;
-};
-
-type Card = CardBase &
-  (
-    | {
-        kind: "appointment";
-        title: string;
-        subtitle: string;
-        date: string;
-        time: string;
-        location: string;
-        reference: string;
-      }
-    | {
-        kind: "checklist";
-        title: string;
-        items: string[];
-        fee: string;
-        action: string;
-      }
-    | {
-        kind: "contributions";
-        title: string;
-        rows: { month: string; amount: string; status: string }[];
-        total: string;
-        meta: string;
-      }
-    | {
-        kind: "record";
-        title: string;
-        fields: { label: string; value: string }[];
-        action: string;
-      }
-    | {
-        kind: "ltoViolation";
-        caseNumber: string;
-        violation: string;
-        status: string;
-        location: string;
-        date: string;
-        time: string;
-        fine: string;
-        source: string;
-        note: string;
-        action: string;
-      }
-  );
-
-type StepIcon =
-  | "identity"
-  | "records"
-  | "search"
-  | "calendar"
-  | "file"
-  | "payment"
-  | "spark"
-  | "shield";
-
-type TraceStep = {
-  icon: StepIcon;
-  label: string;
-  agency: string;
-  result: string;
-  base: number;
-};
-
-type Msg = {
-  id: number;
-  role: "user" | "agent";
-  text: string;
-  card?: Card;
-  trace?: TraceStep[];
-  elapsed?: string;
-};
-
-type User = { name: string; firstName: string; pcn: string; photoSrc?: string };
-
-type Conversation = { id: string; title: string; messages: Msg[] };
-
-type AgentActivity = {
-  steps: TraceStep[];
-  currentIndex: number;
-  startedAt: number;
-  phase: "thinking" | "working" | "typing";
-};
-
-const THINKING_DELAY_MS = 5000;
-
-const DEMO_PROFILE = {
-  name: "Bryl Kezter Lim",
-  firstName: "Bryl",
-  photoSrc: "/brylphoto.jpg",
-};
-
-function subscribeToSessionStorage(onStoreChange: () => void) {
-  if (typeof window === "undefined") return () => {};
-  window.addEventListener("storage", onStoreChange);
-  return () => window.removeEventListener("storage", onStoreChange);
-}
-
-function getSessionUserSnapshot() {
-  if (typeof window === "undefined") return null;
-  return sessionStorage.getItem("egov-user");
-}
-
-function getServerSessionUserSnapshot() {
-  return null;
-}
-
-function readDemoUser(raw: string | null): User | null {
-  if (!raw) return null;
-
-  try {
-    return { ...(JSON.parse(raw) as User), ...DEMO_PROFILE };
-  } catch {
-    return null;
-  }
-}
-
-/* ----------------------------- scripted brain ----------------------------- */
-
-const SUGGESTIONS = [
-  "Renew my passport",
-  "Get an NBI clearance",
-  "Check my SSS contributions",
-  "PhilHealth member record",
-  "Check my LTO violations",
-];
-
-const RECENT_CONVERSATIONS = [
-  "Can you help me renew my passport?",
-  "Check if I have any LTO violations",
-  "How do I check my SSS contributions?",
-  "Can I get an NBI clearance online?",
-  "Please show my PhilHealth member record.",
-  "Help me renew my driver's license.",
-];
-
-const SEED_ELAPSED = ["11.2s", "9.8s", "12.6s", "10.4s", "13.1s"];
-
-/* Pre-generate a realistic transcript for each seeded conversation */
-function seedConversation(
-  title: string,
-  user: User,
-  index: number
-): Conversation {
-  const plan = agentPlan(title, user);
-  const base = 900000 + index * 10;
-  return {
-    id: `seed-${index}`,
-    title,
-    messages: [
-      { id: base + 1, role: "user", text: title },
-      {
-        id: base + 2,
-        role: "agent",
-        text: plan.text,
-        card: plan.card,
-        trace: plan.steps.length ? plan.steps : undefined,
-        elapsed: plan.steps.length
-          ? SEED_ELAPSED[index % SEED_ELAPSED.length]
-          : undefined,
-      },
-    ],
-  };
-}
-
-function step(
-  icon: StepIcon,
-  label: string,
-  agency: string,
-  result: string,
-  base: number
-): TraceStep {
-  return { icon, label, agency, result, base };
-}
-
-type Plan = { steps: TraceStep[]; text: string; card?: Card };
-
-function agentPlan(input: string, user: User): Plan {
-  const q = input.toLowerCase();
-
-  /* ---- follow-up actions triggered by card buttons (checked first) ---- */
-
-  if (q.includes("confirm") && (q.includes("slot") || q.includes("appointment"))) {
-    return {
-      steps: [
-        step(
-          "calendar",
-          "Reserving your slot",
-          "DFA CO Ali Mall",
-          "Slot locked · Jul 21, 10:30 AM",
-          1150
-        ),
-        step(
-          "file",
-          "Issuing your appointment reference",
-          "DFA",
-          "Reference DFA-QC-260721-1030-8842",
-          1300
-        ),
-        step(
-          "spark",
-          "Sending confirmation & reminders",
-          "eGov Notify",
-          "Email + SMS sent · calendar invite added",
-          1150
-        ),
-      ],
-      text: `All set, ${user.firstName}! Your passport renewal appointment is confirmed — Tuesday, July 21, 2026 at 10:30 AM, DFA CO Ali Mall, Cubao. I emailed your confirmation, sent an SMS reminder, and added it to your calendar. Bring your current passport and arrive 15 minutes early.`,
-      card: {
-        kind: "record",
-        title: "DFA Appointment — Confirmed",
-        fields: [
-          { label: "Reference", value: "DFA-QC-260721-1030-8842" },
-          { label: "Date & time", value: "Jul 21, 2026 · 10:30 AM" },
-          { label: "Location", value: "DFA CO Ali Mall, Araneta City, QC" },
-          { label: "Reminders", value: "Email · SMS · Calendar" },
-        ],
-        action: "Print appointment pass",
-        print: "dfa-pass",
-      },
-    };
-  }
-
-  if (q.includes("pay") && (q.includes("nbi") || q.includes("clearance"))) {
-    return {
-      steps: [
-        step(
-          "payment",
-          "Charging your eGov Pay wallet",
-          "eGov Pay",
-          "₱180.00 paid · OR № 2026-0707-8812",
-          1200
-        ),
-        step(
-          "records",
-          "Posting payment with NBI",
-          "NBI",
-          "Payment confirmed · application queued",
-          1300
-        ),
-        step(
-          "file",
-          "Generating your digital clearance",
-          "NBI Clearance",
-          "Ready in ~10 minutes · sent to your email",
-          1200
-        ),
-      ],
-      text: `Payment received — ₱180.00 charged to your eGov Pay wallet. Your NBI Clearance is being generated now; the digital copy lands in your email in about 10 minutes, and the courier copy follows in 2–3 days. Here's your official receipt.`,
-      card: {
-        kind: "record",
-        title: "NBI Clearance — Official Receipt",
-        fields: [
-          { label: "OR number", value: "2026-0707-8812" },
-          { label: "Amount paid", value: "₱180.00" },
-          { label: "Paid via", value: "eGov Pay wallet" },
-          { label: "Status", value: "Processing · ~10 mins" },
-        ],
-        action: "Print official receipt",
-        print: "nbi-receipt",
-      },
-    };
-  }
-
-  if (
-    q.includes("mdr") &&
-    (q.includes("email") || q.includes("certified") || q.includes("send"))
-  ) {
-    return {
-      steps: [
-        step(
-          "file",
-          "Generating your certified MDR",
-          "PhilHealth",
-          "Document generated from live records",
-          1250
-        ),
-        step(
-          "shield",
-          "Applying e-signature & QR verification",
-          "PhilHealth",
-          "Digitally signed · verifiable online",
-          1200
-        ),
-        step(
-          "spark",
-          "Sending to your registered email",
-          "eGov Notify",
-          "Sent to bry••••@gmail.com",
-          1100
-        ),
-      ],
-      text: `Done! Your certified Member Data Record is signed and on its way to bry••••@gmail.com. It carries a QR code that any employer or hospital can scan to verify it's authentic — no more falling in line at a PhilHealth office.`,
-      card: {
-        kind: "record",
-        title: "PhilHealth Certified MDR — Issued",
-        fields: [
-          { label: "Document no.", value: "MDR-2026-0707-3318" },
-          { label: "Sent to", value: "bry••••@gmail.com" },
-          { label: "Signature", value: "PhilHealth e-seal + QR" },
-          { label: "Status", value: "Delivered" },
-        ],
-        action: "Print MDR copy",
-        print: "ph-mdr",
-      },
-    };
-  }
-
-  if (q.includes("cde") || (q.includes("start") && q.includes("exam"))) {
-    return {
-      steps: [
-        step(
-          "records",
-          "Enrolling you in the CDE portal",
-          "LTO LTMS",
-          "Enrollment confirmed · account linked",
-          1200
-        ),
-        step(
-          "file",
-          "Preparing your reviewer & exam link",
-          "LTO",
-          "25-item exam · pass with 13 correct",
-          1250
-        ),
-        step(
-          "spark",
-          "Sending your exam access link",
-          "eGov Notify",
-          "Link sent to bry••••@gmail.com",
-          1100
-        ),
-      ],
-      text: `You're enrolled! I sent your Comprehensive Driver's Education exam link to your email — 25 items, pass with 13 correct, with a free reviewer included. Once you pass, message me and I'll book your biometrics at the nearest renewal center.`,
-      card: {
-        kind: "record",
-        title: "LTO CDE Exam — Enrolled",
-        fields: [
-          { label: "Exam", value: "CDE Online · 25 items" },
-          { label: "Passing score", value: "13 of 25" },
-          { label: "Access link", value: "Sent via email" },
-          { label: "Status", value: "Ready to take" },
-        ],
-        action: "Print renewal application",
-        print: "lto-form",
-      },
-    };
-  }
-
-  /* ------------------------- base service intents ------------------------- */
-
-  if (q.includes("passport") || q.includes("dfa")) {
-    return {
-      steps: [
-        step(
-          "identity",
-          "Verifying your identity",
-          "PhilSys eVerify",
-          "Identity confirmed · face + PCN match",
-          900
-        ),
-        step(
-          "records",
-          "Retrieving your passport record",
-          "DFA",
-          "ePassport found · expires Mar 14, 2027",
-          1400
-        ),
-        step(
-          "shield",
-          "Checking renewal eligibility",
-          "DFA",
-          "Eligible — within the renewal window",
-          1100
-        ),
-        step(
-          "calendar",
-          "Scanning appointment slots near Quezon City",
-          "DFA CO Ali Mall",
-          "Earliest slot found · Jul 21, 10:30 AM",
-          1650
-        ),
-      ],
-      text: `I checked with the DFA appointment system — your ePassport expires on March 14, 2027, so you're eligible for renewal now. I found the earliest available slot near your registered address in Quezon City. Shall I book it for you?`,
-      card: {
-        kind: "appointment",
-        title: "DFA Passport Renewal",
-        subtitle: "DFA CO Ali Mall, Cubao",
-        date: "Tuesday, July 21, 2026",
-        time: "10:30 AM",
-        location: "2F Ali Mall, Araneta City, Quezon City",
-        reference: "DFA-QC-260721-1030-8842",
-        intent: "Confirm the July 21 slot",
-        print: "dfa-form",
-        printLabel: "Print pre-filled application",
-      },
-    };
-  }
-
-  if (q.includes("nbi") || q.includes("clearance")) {
-    return {
-      steps: [
-        step(
-          "identity",
-          "Verifying your identity",
-          "PhilSys eVerify",
-          "Identity confirmed · biometrics on file",
-          900
-        ),
-        step(
-          "search",
-          "Running national name & record check",
-          "NBI",
-          "No record hits found",
-          1550
-        ),
-        step(
-          "file",
-          "Assembling your online application",
-          "NBI Clearance",
-          "Purpose set · Local employment",
-          1150
-        ),
-        step(
-          "payment",
-          "Computing fees & delivery options",
-          "eGov Pay",
-          "₱180.00 total · digital copy ready in ~10 min",
-          1250
-        ),
-      ],
-      text: `You can get your NBI Clearance fully online — no need to visit a branch since your biometrics from PhilSys are already on file. Here's everything you need. Once paid, your digital copy arrives in about 10 minutes.`,
-      card: {
-        kind: "checklist",
-        title: "NBI Clearance — Online",
-        items: [
-          "PhilSys ID verified via eVerify",
-          "Biometrics on file (captured 2024)",
-          "Purpose: Local employment",
-          "Digital copy + courier delivery available",
-        ],
-        fee: "₱155.00 + ₱25.00 e-payment fee",
-        action: "Pay with eGov Pay",
-        intent: "Pay the NBI clearance fee with eGov Pay",
-        print: "nbi-form",
-        printLabel: "Print pre-filled application",
-      },
-    };
-  }
-
-  if (q.includes("sss") || q.includes("contribution") || q.includes("pension")) {
-    return {
-      steps: [
-        step(
-          "identity",
-          "Verifying your identity",
-          "PhilSys eVerify",
-          "Identity confirmed · member matched",
-          900
-        ),
-        step(
-          "records",
-          "Connecting to your member records",
-          "SSS",
-          "Member 34-2258901-5 · Active",
-          1350
-        ),
-        step(
-          "search",
-          "Reading employer contribution postings",
-          "SSS",
-          "87 posted contributions found",
-          1500
-        ),
-        step(
-          "spark",
-          "Calculating your contribution summary",
-          "eGov Agent",
-          "Fully posted through June 2026",
-          1050
-        ),
-      ],
-      text: `Here's your latest SSS contribution summary, ${user.firstName}. Your employer has posted all contributions up to last month — you're fully up to date with 87 total posted contributions.`,
-      card: {
-        kind: "contributions",
-        title: "SSS · 34-2258901-5",
-        rows: [
-          { month: "June 2026", amount: "₱1,830.00", status: "Posted" },
-          { month: "May 2026", amount: "₱1,830.00", status: "Posted" },
-          { month: "April 2026", amount: "₱1,830.00", status: "Posted" },
-        ],
-        total: "₱142,470.00",
-        meta: "87 contributions · fully posted",
-        print: "sss-statement",
-        printLabel: "Print contribution statement",
-      },
-    };
-  }
-
-  if (q.includes("philhealth")) {
-    return {
-      steps: [
-        step(
-          "identity",
-          "Verifying your identity",
-          "PhilSys eVerify",
-          "Identity confirmed · member matched",
-          900
-        ),
-        step(
-          "records",
-          "Opening your Member Data Record",
-          "PhilHealth",
-          "PIN 08-025518412-3 · Active",
-          1350
-        ),
-        step(
-          "search",
-          "Checking premium payment history",
-          "PhilHealth",
-          "Premiums current through Q2 2026",
-          1450
-        ),
-        step(
-          "file",
-          "Reviewing registered dependents",
-          "PhilHealth",
-          "2 dependents on record",
-          1000
-        ),
-      ],
-      text: `Your PhilHealth membership is active and your premiums are up to date. Here's your Member Data Record — I can send a certified digital copy to your registered email if you need one for employment or hospital admission.`,
-      card: {
-        kind: "record",
-        title: "PhilHealth Member Data Record",
-        fields: [
-          { label: "PIN", value: "08-025518412-3" },
-          { label: "Member type", value: "Direct Contributor — Employed" },
-          { label: "Status", value: "Premiums up to date" },
-          { label: "Dependents", value: "2 registered" },
-        ],
-        action: "Email certified MDR",
-        intent: "Email my certified MDR",
-        print: "ph-mdr",
-        printLabel: "Print MDR copy",
-      },
-    };
-  }
-
-  if (
-    !(q.includes("pay") || q.includes("payment") || q.includes("proceed")) &&
-    (q.includes("lto") || q.includes("license") || q.includes("driver")) &&
-    (q.includes("violation") ||
-      q.includes("alarm") ||
-      q.includes("apprehension") ||
-      q.includes("ticket") ||
-      q.includes("oga") ||
-      q.includes("unsettled"))
-  ) {
-    return {
-      steps: [
-        step(
-          "identity",
-          "Verifying your identity",
-          "PhilSys eVerify",
-          "Identity confirmed · license holder matched",
-          900
-        ),
-        step(
-          "records",
-          "Opening your LTO profile",
-          "LTO LTMS",
-          "License N03-12-345678 · profile found",
-          1250
-        ),
-        step(
-          "search",
-          "Checking OGA interface alarms",
-          "LTO Violations",
-          "Alarm detected · transactions blocked",
-          1500
-        ),
-        step(
-          "file",
-          "Retrieving case details",
-          "LTO",
-          "TRX-LETAS-260210-4507860 · 5.STS-8 Obstruction",
-          1150
-        ),
-      ],
-      text: `I checked your LTO profile, ${user.firstName}. You have one pending OGA alarm, so LTO transactions like licensing, vehicle updates, and documents are blocked until the case is settled. The case details show a 5.STS-8 Obstruction violation recorded on January 20, 2026 at 8:39 AM.`,
-      card: {
-        kind: "ltoViolation",
-        caseNumber: "TRX-LETAS-260210-4507860",
-        violation: "5.STS-8 Obstruction",
-        status: "PENDING",
-        location: "NA",
-        date: "01/20/2026",
-        time: "08:39 am",
-        fine: "For assessment",
-        source: "OGA",
-        note:
-          "You have been placed under alarm by OGA Interface. All transactions to LTO are blocked until the alarm is lifted. Please go to OGA Interface to settle your alarm.",
-        action: "Proceed to Payment",
-        intent: "Proceed to payment for my LTO OGA violation",
-      },
-    };
-  }
-
-  if (
-    (q.includes("pay") || q.includes("payment") || q.includes("proceed")) &&
-    (q.includes("lto") || q.includes("oga") || q.includes("violation"))
-  ) {
-    return {
-      steps: [
-        step(
-          "payment",
-          "Opening the settlement channel",
-          "eGov Pay",
-          "LTO OGA case linked · payment window prepared",
-          1100
-        ),
-        step(
-          "records",
-          "Notifying OGA interface",
-          "LTO Violations",
-          "Case TRX-LETAS-260210-4507860 queued for settlement",
-          1300
-        ),
-        step(
-          "shield",
-          "Preparing alarm lift request",
-          "LTO",
-          "Transactions unlock after OGA payment confirmation",
-          1150
-        ),
-      ],
-      text: `I prepared the payment handoff for case TRX-LETAS-260210-4507860. Once the OGA payment is confirmed, the alarm lift request is sent back to LTO so your blocked transactions can reopen.`,
-    };
-  }
-
-  if (q.includes("license") || q.includes("lto") || q.includes("driver")) {
-    return {
-      steps: [
-        step(
-          "identity",
-          "Verifying your identity",
-          "PhilSys eVerify",
-          "Identity confirmed · license holder matched",
-          900
-        ),
-        step(
-          "records",
-          "Retrieving your driver's license file",
-          "LTO LTMS",
-          "License N03-12-345678 · expires Oct 2, 2026",
-          1350
-        ),
-        step(
-          "search",
-          "Checking for unsettled violations",
-          "LTO",
-          "No unsettled violations found",
-          1500
-        ),
-        step(
-          "file",
-          "Preparing online renewal requirements",
-          "LTO LTMS",
-          "CDE exam + biometrics visit needed",
-          1050
-        ),
-      ],
-      text: `Your driver's license (N03-12-345678) expires on October 2, 2026. Since you have no unsettled violations, you qualify for online renewal. You'll just need to complete the Comprehensive Driver's Education exam online — it takes about 20 minutes — then pick a renewal center for biometrics.`,
-      card: {
-        kind: "checklist",
-        title: "LTO License Renewal",
-        items: [
-          "License N03-12-345678 — expires Oct 2, 2026",
-          "No unsettled violations",
-          "CDE online exam required (~20 mins)",
-          "Medical certificate — book via agent",
-        ],
-        fee: "₱585.00 renewal fee",
-        action: "Start CDE exam",
-        intent: "Start the CDE exam",
-        print: "lto-form",
-        printLabel: "Print renewal application",
-      },
-    };
-  }
-
-  if (q.includes("tax") || q.includes("bir") || q.includes("tin")) {
-    return {
-      steps: [
-        step(
-          "identity",
-          "Verifying your identity",
-          "PhilSys eVerify",
-          "Identity confirmed · taxpayer matched",
-          900
-        ),
-        step(
-          "records",
-          "Retrieving your taxpayer registration",
-          "BIR",
-          "TIN active · RDO 40, Cubao",
-          1350
-        ),
-        step(
-          "search",
-          "Checking your 2025 filing status",
-          "BIR eFPS",
-          "Filed via substituted filing",
-          1450
-        ),
-        step(
-          "file",
-          "Listing available tax documents",
-          "BIR",
-          "ITR copy · Tax Clearance Certificate",
-          1000
-        ),
-      ],
-      text: `Your BIR records show your TIN is active and registered under RDO 40 (Cubao). Your 2025 annual income tax return was filed by your employer under substituted filing — no action needed from you this year. Would you like a Tax Clearance Certificate or a copy of your ITR?`,
-    };
-  }
-
-  if (/\b(hi|hello|hey|kumusta|mabuhay|salamat|thanks|thank you)\b/.test(q)) {
-    return {
-      steps: [],
-      text: `Walang anuman, ${user.firstName}! I'm here anytime. I can help you with passports, NBI clearance, SSS, PhilHealth, Pag-IBIG, LTO transactions, business permits, and 200+ other government services — just ask.`,
-    };
-  }
-
-  return {
-    steps: [
-      step(
-        "spark",
-        "Understanding your request",
-        "eGov Agent",
-        "Intent mapped to government services",
-        950
-      ),
-      step(
-        "search",
-        "Searching 34 connected agencies",
-        "Service Directory",
-        "Matched related services and records",
-        1450
-      ),
-      step(
-        "shield",
-        "Checking what I can do on your behalf",
-        "eGov Agent",
-        "Actions available with your consent",
-        1100
-      ),
-    ],
-    text: `I can help you with that. As your eGov Agent, I have secure access to your records across 34 connected agencies — DFA, NBI, SSS, PhilHealth, Pag-IBIG, LTO, BIR, and more. Try asking me to renew a document, check a record, book an appointment, or pay a government fee.`,
-  };
-}
+import { AgentMark } from "@/components/brand";
+import { AgencySeal, sealFor } from "@/components/agency";
+import {
+  Map as SiteMap,
+  MapControls,
+  MapMarker,
+  MarkerContent,
+  MarkerPopup,
+  MarkerTooltip,
+} from "@/components/ui/map";
+import { printForm } from "./forms";
+import { useAgentShell } from "./shell";
+import { DEMO_DATES as D } from "./dates";
+import {
+  agentPlan,
+  THINKING_DELAY_MS,
+  type AgentActivity,
+  type Card,
+  type Msg,
+  type StepIcon,
+  type TraceStep,
+  type User,
+} from "./brain";
 
 /* --------------------------------- page ----------------------------------- */
 
 export default function AgentPage() {
-  const router = useRouter();
-  const sessionUser = useSyncExternalStore(
-    subscribeToSessionStorage,
-    getSessionUserSnapshot,
-    getServerSessionUserSnapshot
-  );
-  const user = useMemo(() => readDemoUser(sessionUser), [sessionUser]);
+  const {
+    user,
+    conversations,
+    setConversations,
+    activeConvId,
+    setActiveConvId,
+  } = useAgentShell();
   const [messages, setMessages] = useState<Msg[]>([]);
-  const [conversations, setConversations] = useState<Conversation[]>([]);
-  const [activeConvId, setActiveConvId] = useState<string | null>(null);
   const [input, setInput] = useState("");
   const [agentProgress, setAgentProgress] = useState<AgentActivity | null>(null);
   const [streamingId, setStreamingId] = useState<number | null>(null);
   const [listening, setListening] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
   const idRef = useRef(0);
   const convIdRef = useRef(0);
+  const lastHandledConvRef = useRef<string | null | undefined>(undefined);
   const bottomRef = useRef<HTMLDivElement>(null);
   const agentTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -850,27 +81,27 @@ export default function AgentPage() {
     agentTimersRef.current = [];
   }, []);
 
-  useEffect(() => {
-    if (!readDemoUser(sessionStorage.getItem("egov-user"))) {
-      router.replace("/");
-    }
-  }, [router, sessionUser]);
-
   useEffect(() => clearAgentTimers, [clearAgentTimers]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, agentProgress]);
 
-  /* Seed the sidebar with realistic past conversations */
+  /* Load the transcript when the sidebar switches conversations */
   useEffect(() => {
-    if (!user) return;
-    setConversations((cs) =>
-      cs.length
-        ? cs
-        : RECENT_CONVERSATIONS.map((title, i) => seedConversation(title, user, i))
-    );
-  }, [user]);
+    if (lastHandledConvRef.current === activeConvId) return;
+    lastHandledConvRef.current = activeConvId;
+    clearAgentTimers();
+    setAgentProgress(null);
+    setStreamingId(null);
+    setInput("");
+    if (activeConvId === null) {
+      setMessages([]);
+    } else {
+      const conv = conversations.find((c) => c.id === activeConvId);
+      setMessages(conv ? conv.messages : []);
+    }
+  }, [activeConvId, conversations, clearAgentTimers]);
 
   /* Keep the active conversation's transcript in sync with the chat */
   useEffect(() => {
@@ -878,30 +109,7 @@ export default function AgentPage() {
     setConversations((cs) =>
       cs.map((c) => (c.id === activeConvId ? { ...c, messages } : c))
     );
-  }, [messages, activeConvId]);
-
-  const newConversation = useCallback(() => {
-    clearAgentTimers();
-    setAgentProgress(null);
-    setStreamingId(null);
-    setActiveConvId(null);
-    setMessages([]);
-    setInput("");
-  }, [clearAgentTimers]);
-
-  const selectConversation = useCallback(
-    (id: string) => {
-      if (id === activeConvId) return;
-      const conv = conversations.find((c) => c.id === id);
-      if (!conv) return;
-      clearAgentTimers();
-      setAgentProgress(null);
-      setStreamingId(null);
-      setActiveConvId(id);
-      setMessages(conv.messages);
-    },
-    [activeConvId, clearAgentTimers, conversations]
-  );
+  }, [messages, activeConvId, setConversations]);
 
   const scrollToBottom = useCallback(() => {
     bottomRef.current?.scrollIntoView({ block: "end" });
@@ -925,6 +133,7 @@ export default function AgentPage() {
         const convId = `conv-${++convIdRef.current}`;
         const title =
           text.length > 44 ? `${text.slice(0, 44).trimEnd()}…` : text;
+        lastHandledConvRef.current = convId;
         setConversations((cs) => [{ id: convId, title, messages: [] }, ...cs]);
         setActiveConvId(convId);
       }
@@ -950,6 +159,7 @@ export default function AgentPage() {
             card: plan.card,
             trace: steps.length ? steps : undefined,
             elapsed: steps.length ? elapsed : undefined,
+            attachments: plan.attachments,
           },
         ]);
         setStreamingId(id);
@@ -1002,7 +212,15 @@ export default function AgentPage() {
 
       agentTimersRef.current.push(setTimeout(startWork, THINKING_DELAY_MS));
     },
-    [activeConvId, busy, clearAgentTimers, input, user]
+    [
+      activeConvId,
+      busy,
+      clearAgentTimers,
+      input,
+      setActiveConvId,
+      setConversations,
+      user,
+    ]
   );
 
   const sendRef = useRef(send);
@@ -1045,377 +263,186 @@ export default function AgentPage() {
     rec.start();
   }, [listening]);
 
-  const signOut = () => {
-    clearAgentTimers();
-    sessionStorage.removeItem("egov-user");
-    window.speechSynthesis?.cancel();
-    router.push("/");
-  };
-
-  if (!user) return null;
-
   const empty = messages.length === 0;
 
   return (
-    <main className="flex h-dvh overflow-hidden bg-[#f7faff] text-slate-900">
-      <aside
-        className={`flex w-[76px] shrink-0 flex-col bg-white/85 shadow-[10px_0_30px_rgba(6,61,125,0.04)] backdrop-blur-xl transition-[width] duration-300 ease-out ${
-          sidebarCollapsed ? "sm:w-[84px]" : "sm:w-[280px]"
-        }`}
-      >
-        <div className="flex h-full flex-col px-3 py-4 sm:px-4 sm:py-5">
+    <>
+      {/* Messages */}
+      <div className="scrollbar-subtle relative flex-1 overflow-y-auto">
+        {empty && (
           <div
-            className={`flex items-center justify-center ${
-              sidebarCollapsed
-                ? "sm:flex-col sm:gap-3"
-                : "sm:justify-between sm:gap-3"
+            aria-hidden
+            className="pointer-events-none absolute inset-0 z-0 flex justify-center overflow-hidden"
+          >
+            <div className="aurora absolute top-[3%] h-[480px] w-[760px]" />
+            <div className="aurora-reverse absolute top-[10%] h-[400px] w-[600px]" />
+          </div>
+        )}
+        <div className="relative z-10 mx-auto flex min-h-full w-full max-w-2xl flex-col px-6 py-8">
+          {empty ? (
+            <div className="flex flex-1 flex-col items-center justify-center pb-20 text-center">
+              <div className="animate-fade-up">
+                <AgentMark size={72} />
+              </div>
+              <h2 className="animate-fade-up delay-100 mt-8 text-[34px] font-semibold tracking-tight sm:text-[40px]">
+                Mabuhay,{" "}
+                <span className="text-[#0a4f9e]">{user.firstName}</span>!
+              </h2>
+              <p className="animate-fade-up delay-200 mt-3 max-w-md text-[17px] leading-relaxed text-slate-500">
+                Passports, clearances, contributions, licenses — just ask,
+                and I&apos;ll take care of it.
+              </p>
+              <div className="animate-fade-up delay-300 mt-6">
+                <TodayChip />
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-8">
+              {messages.map((m) =>
+                m.role === "user" ? (
+                  <div key={m.id} className="animate-bubble-in flex justify-end">
+                    <div className="bg-brand-gradient max-w-[80%] rounded-3xl rounded-br-lg px-5 py-3 text-[16px] leading-relaxed text-white">
+                      {m.text}
+                    </div>
+                  </div>
+                ) : (
+                  <div key={m.id} className="animate-bubble-in flex gap-4">
+                    <div className="mt-1 shrink-0">
+                      <AgentMark size={32} />
+                    </div>
+                    <div className="min-w-0 flex-1 space-y-4 pt-1.5">
+                      {m.trace && (
+                        <TraceSummary steps={m.trace} elapsed={m.elapsed} />
+                      )}
+                      {m.id === streamingId ? (
+                        <StreamedText
+                          text={m.text}
+                          onDone={handleStreamDone}
+                          onTick={scrollToBottom}
+                        />
+                      ) : (
+                        <RichText text={m.text} />
+                      )}
+                      {m.attachments && m.id !== streamingId && (
+                        <div className="animate-fade-in flex flex-wrap gap-2">
+                          {m.attachments.map((a) => (
+                            <a
+                              key={a.name}
+                              href={a.href}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="flex items-center gap-1.5 rounded-full bg-white py-1.5 pl-2.5 pr-3 text-[12.5px] font-medium text-[#0a4f9e] shadow-[0_8px_20px_-10px_rgba(6,61,125,0.35)] transition hover:-translate-y-0.5 hover:shadow-[0_12px_24px_-10px_rgba(6,61,125,0.45)]"
+                            >
+                              {/\.(jpe?g|png|webp)$/i.test(a.href) ? (
+                                <ImageIcon size={12} className="shrink-0" />
+                              ) : (
+                                <FileText size={12} className="shrink-0" />
+                              )}
+                              {a.name}
+                            </a>
+                          ))}
+                        </div>
+                      )}
+                      {m.card && m.id !== streamingId && (
+                        <div className="animate-card-in">
+                          <ServiceCard
+                            card={m.card}
+                            user={user}
+                            onIntent={send}
+                          />
+                        </div>
+                      )}
+                      {m.id !== streamingId && (
+                        <div className="animate-fade-in -ml-2 pt-0.5">
+                          <CopyButton text={m.text} />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )
+              )}
+              {agentProgress &&
+                (agentProgress.phase === "thinking" ? (
+                  <ThinkingLoader />
+                ) : agentProgress.steps.length ? (
+                  <AgentWorking progress={agentProgress} />
+                ) : (
+                  <TypingBubble />
+                ))}
+              <div ref={bottomRef} />
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Composer */}
+      <div className="bg-[#f7faff]/90 px-6 pb-6 pt-2 backdrop-blur">
+        <div className="hairline mx-auto flex min-h-[116px] w-full max-w-2xl items-end gap-2 rounded-[28px] bg-white p-3">
+          <textarea
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                send();
+              }
+            }}
+            placeholder={
+              listening
+                ? "Listening…"
+                : busy
+                  ? "eGov Agent is working…"
+                  : "Ask about any government service…"
+            }
+            rows={3}
+            className="min-h-20 flex-1 resize-none bg-transparent px-2 py-2 text-[16px] leading-6 outline-none placeholder:text-slate-400"
+          />
+          <button
+            type="button"
+            onClick={toggleMic}
+            title="Voice input"
+            aria-label="Voice input"
+            className={`mb-1 flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full transition ${
+              listening
+                ? "animate-mic-pulse bg-red-500 text-white"
+                : "text-slate-400 hover:bg-[#f6f9ff] hover:text-[#0a4f9e]"
             }`}
           >
-            <div className="sm:hidden">
-              <AgentMark size={34} />
-            </div>
-            <div className="hidden min-w-0 sm:block">
-              {sidebarCollapsed ? (
-                <AgentMark size={34} />
-              ) : (
-                <AgentWordmark size={32} />
-              )}
-            </div>
-            <button
-              type="button"
-              onClick={() => setSidebarCollapsed((value) => !value)}
-              title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-              aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-              aria-expanded={!sidebarCollapsed}
-              className="hidden h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-2xl border border-slate-200/80 bg-white text-slate-400 shadow-[0_8px_20px_rgba(11,22,36,0.05)] transition hover:border-[#0a4f9e]/30 hover:text-[#0a4f9e] sm:flex"
-            >
-              {sidebarCollapsed ? (
-                <PanelLeftOpen size={17} />
-              ) : (
-                <PanelLeftClose size={17} />
-              )}
-            </button>
-          </div>
-
-          <nav className="mt-8 space-y-2" aria-label="Agent navigation">
-            <SidebarNavButton
-              active={activeConvId === null}
-              expanded={!sidebarCollapsed}
-              icon={<SquarePen size={18} />}
-              label="New conversation"
-              onClick={newConversation}
-            />
-            <SidebarNavButton
-              expanded={!sidebarCollapsed}
-              icon={<ShieldCheck size={18} />}
-              label="Verified access"
-            />
-            <SidebarNavButton
-              expanded={!sidebarCollapsed}
-              icon={<FileText size={18} />}
-              label="Service records"
-            />
-            <SidebarNavButton
-              expanded={!sidebarCollapsed}
-              icon={<Bot size={18} />}
-              label="Agency assistant"
-            />
-            <div className="my-5 h-px bg-slate-200/70" />
-            <RecentConversations
-              expanded={!sidebarCollapsed}
-              conversations={conversations}
-              activeId={activeConvId}
-              onSelect={selectConversation}
-            />
-          </nav>
-
-          <div className="mt-auto space-y-3">
-            <section
-              aria-label="Verified user"
-              className={`flex items-center justify-center px-2 py-3 ${
-                sidebarCollapsed
-                  ? ""
-                  : "sm:justify-start sm:gap-3 sm:px-3"
-              }`}
-            >
-              <Image
-                src={user.photoSrc ?? DEMO_PROFILE.photoSrc}
-                alt={user.name}
-                width={40}
-                height={40}
-                className="h-10 w-10 shrink-0 rounded-full object-cover ring-2 ring-[#0a4f9e]/10"
-              />
-              {!sidebarCollapsed && (
-                <div className="hidden min-w-0 leading-tight sm:block">
-                  <div className="flex min-w-0 items-center text-[13.5px] font-semibold">
-                    <span className="truncate">{user.name}</span>
-                  </div>
-                  <div className="font-pixel mt-2 inline-flex max-w-full items-center gap-1.5 rounded-full bg-[#0a4f9e]/10 px-2.5 py-1 text-[9px] uppercase tracking-widest text-[#0a4f9e]">
-                    <BadgeCheck size={12} className="shrink-0" />
-                    <span className="truncate">Verified</span>
-                  </div>
-                </div>
-              )}
-            </section>
-
-            <div className="space-y-2">
-              <SidebarControlButton
-                danger
-                expanded={!sidebarCollapsed}
-                icon={<LogOut size={18} />}
-                label="Sign out"
-                onClick={signOut}
-              />
-            </div>
-          </div>
+            <Mic size={19} />
+          </button>
         </div>
-      </aside>
-
-      <section className="flex min-w-0 flex-1 flex-col">
-        {/* Messages */}
-        <div className="scrollbar-subtle flex-1 overflow-y-auto">
-          <div className="mx-auto flex min-h-full w-full max-w-2xl flex-col px-6 py-8">
-            {empty ? (
-              <div className="flex flex-1 flex-col items-center justify-center pb-20 text-center">
-                <div className="animate-fade-up">
-                  <AgentMark size={72} />
-                </div>
-                <h2 className="animate-fade-up delay-100 mt-8 text-[34px] font-semibold tracking-tight sm:text-[40px]">
-                  Mabuhay,{" "}
-                  <span className="text-[#0a4f9e]">{user.firstName}</span>!
-                </h2>
-                <p className="animate-fade-up delay-200 mt-3 max-w-md text-[17px] leading-relaxed text-slate-500">
-                  Ask me anything — I&apos;m connected to 34 agencies on your
-                  behalf.
-                </p>
-                <div className="animate-fade-up delay-300 mt-9 flex max-w-lg flex-wrap justify-center gap-2.5">
-                  {SUGGESTIONS.map((s) => (
-                    <button
-                      key={s}
-                      onClick={() => send(s)}
-                      disabled={busy}
-                      className="hairline cursor-pointer rounded-full bg-white px-5 py-2.5 text-[14.5px] text-slate-600 transition hover:border-[#0a4f9e]/40 hover:text-[#0a4f9e] disabled:cursor-default disabled:opacity-45"
-                    >
-                      {s}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-8">
-                {messages.map((m) =>
-                  m.role === "user" ? (
-                    <div key={m.id} className="animate-bubble-in flex justify-end">
-                      <div className="bg-brand-gradient max-w-[80%] rounded-3xl rounded-br-lg px-5 py-3 text-[16px] leading-relaxed text-white">
-                        {m.text}
-                      </div>
-                    </div>
-                  ) : (
-                    <div key={m.id} className="animate-bubble-in flex gap-4">
-                      <div className="mt-1 shrink-0">
-                        <AgentMark size={32} />
-                      </div>
-                      <div className="min-w-0 flex-1 space-y-4 pt-1.5">
-                        {m.trace && (
-                          <TraceSummary steps={m.trace} elapsed={m.elapsed} />
-                        )}
-                        {m.id === streamingId ? (
-                          <StreamedText
-                            text={m.text}
-                            onDone={handleStreamDone}
-                            onTick={scrollToBottom}
-                          />
-                        ) : (
-                          <p className="text-[16.5px] leading-[1.65] text-slate-700">
-                            {m.text}
-                          </p>
-                        )}
-                        {m.card && m.id !== streamingId && (
-                          <div className="animate-card-in">
-                            <ServiceCard
-                              card={m.card}
-                              user={user}
-                              onIntent={send}
-                            />
-                          </div>
-                        )}
-                        {m.id !== streamingId && (
-                          <div className="animate-fade-in -ml-2 pt-0.5">
-                            <CopyButton text={m.text} />
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )
-                )}
-                {agentProgress &&
-                  (agentProgress.phase === "thinking" ? (
-                    <ThinkingLoader />
-                  ) : agentProgress.steps.length ? (
-                    <AgentWorking progress={agentProgress} />
-                  ) : (
-                    <TypingBubble />
-                  ))}
-                <div ref={bottomRef} />
-              </div>
-            )}
-          </div>
+        <div className="mx-auto mt-3 flex max-w-2xl flex-wrap items-center justify-center gap-x-4 gap-y-2 text-[12px] text-slate-400">
+          <span className="font-pixel text-[9px] uppercase tracking-[0.18em]">
+            eGovPH Support
+          </span>
+          <a
+            href="mailto:support@e.gov.ph"
+            className="inline-flex cursor-pointer items-center gap-1.5 transition hover:text-[#0a4f9e]"
+          >
+            <Mail size={13} />
+            support@e.gov.ph
+          </a>
+          <a
+            href="tel:+63289200101"
+            className="inline-flex cursor-pointer items-center gap-1.5 transition hover:text-[#0a4f9e]"
+          >
+            <Phone size={13} />
+            8-920-0101 loc. 1832
+          </a>
+          <button
+            type="button"
+            onClick={() => setShowGuide(true)}
+            title="Demo guide"
+            aria-label="Open demo guide"
+            className="hairline flex h-6 w-6 cursor-pointer items-center justify-center rounded-full bg-white text-slate-400 transition hover:border-[#0a4f9e]/40 hover:text-[#0a4f9e]"
+          >
+            <HelpCircle size={13} />
+          </button>
         </div>
-
-        {/* Composer */}
-        <div className="bg-[#f7faff]/90 px-6 pb-6 pt-2 backdrop-blur">
-          <div className="hairline mx-auto flex min-h-[116px] w-full max-w-2xl items-end gap-2 rounded-[28px] bg-white p-3">
-            <textarea
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  send();
-                }
-              }}
-              placeholder={
-                listening
-                  ? "Listening…"
-                  : busy
-                    ? "eGov Agent is working…"
-                    : "Ask about any government service…"
-              }
-              rows={3}
-              className="min-h-20 flex-1 resize-none bg-transparent px-2 py-2 text-[16px] leading-6 outline-none placeholder:text-slate-400"
-            />
-            <button
-              type="button"
-              onClick={toggleMic}
-              title="Voice input"
-              aria-label="Voice input"
-              className={`mb-1 flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full transition ${
-                listening
-                  ? "animate-mic-pulse bg-red-500 text-white"
-                  : "text-slate-400 hover:bg-[#f6f9ff] hover:text-[#0a4f9e]"
-              }`}
-            >
-              <Mic size={19} />
-            </button>
-          </div>
-          <div className="mx-auto mt-3 flex max-w-2xl flex-wrap items-center justify-center gap-x-4 gap-y-2 text-[12px] text-slate-400">
-            <span className="font-pixel text-[9px] uppercase tracking-[0.18em]">
-              eGovPH Support
-            </span>
-            <a
-              href="mailto:support@e.gov.ph"
-              className="inline-flex cursor-pointer items-center gap-1.5 transition hover:text-[#0a4f9e]"
-            >
-              <Mail size={13} />
-              support@e.gov.ph
-            </a>
-            <a
-              href="tel:+63289200101"
-              className="inline-flex cursor-pointer items-center gap-1.5 transition hover:text-[#0a4f9e]"
-            >
-              <Phone size={13} />
-              8-920-0101 loc. 1832
-            </a>
-            <button
-              type="button"
-              onClick={() => setShowGuide(true)}
-              title="Demo guide"
-              aria-label="Open demo guide"
-              className="hairline flex h-6 w-6 cursor-pointer items-center justify-center rounded-full bg-white text-slate-400 transition hover:border-[#0a4f9e]/40 hover:text-[#0a4f9e]"
-            >
-              <HelpCircle size={13} />
-            </button>
-          </div>
-        </div>
-      </section>
+      </div>
 
       <DemoGuideModal open={showGuide} onClose={() => setShowGuide(false)} />
-    </main>
-  );
-}
-
-/* ------------------------------ agency logos ------------------------------- */
-
-const AGENCY_LOGOS: Record<
-  string,
-  { src: string; aspect?: number; fullName: string }
-> = {
-  philsys: {
-    src: "/agency-logos/philsys.png",
-    aspect: 2.4,
-    fullName: "Philippine Statistics Authority",
-  },
-  dfa: {
-    src: "/agency-logos/dfa.png",
-    fullName: "Department of Foreign Affairs",
-  },
-  nbi: {
-    src: "/agency-logos/nbi.png",
-    fullName: "National Bureau of Investigation",
-  },
-  sss: {
-    src: "/agency-logos/sss.png",
-    aspect: 1.35,
-    fullName: "Social Security System",
-  },
-  philhealth: {
-    src: "/agency-logos/philhealth.png",
-    aspect: 2.2,
-    fullName: "Philippine Health Insurance Corporation",
-  },
-  lto: {
-    src: "/agency-logos/lto.png",
-    fullName: "Land Transportation Office",
-  },
-  bir: {
-    src: "/agency-logos/bir.png",
-    fullName: "Bureau of Internal Revenue",
-  },
-  pay: {
-    src: "/agency-logos/egovpay.svg",
-    fullName: "eGov Pay",
-  },
-  egov: {
-    src: "/agency-logos/egovph.svg",
-    aspect: 2.4,
-    fullName: "eGovPH",
-  },
-};
-
-function sealFor(label: string) {
-  const t = label.toLowerCase();
-  if (t.includes("philsys")) return AGENCY_LOGOS.philsys;
-  if (t.includes("dfa")) return AGENCY_LOGOS.dfa;
-  if (t.includes("nbi")) return AGENCY_LOGOS.nbi;
-  if (t.includes("sss")) return AGENCY_LOGOS.sss;
-  if (t.includes("philhealth")) return AGENCY_LOGOS.philhealth;
-  if (t.includes("lto")) return AGENCY_LOGOS.lto;
-  if (t.includes("bir")) return AGENCY_LOGOS.bir;
-  if (t.includes("pay")) return AGENCY_LOGOS.pay;
-  if (t.includes("notify") || t.includes("egov agent")) return AGENCY_LOGOS.egov;
-  return null;
-}
-
-function AgencySeal({ label, size = 32 }: { label: string; size?: number }) {
-  const seal = sealFor(label);
-  if (!seal) return null;
-  const width = Math.round(size * Math.min(seal.aspect ?? 1, 2.4));
-
-  return (
-    <span
-      role="img"
-      aria-label={seal.fullName}
-      className="relative inline-flex shrink-0 overflow-hidden rounded-full bg-white ring-1 ring-slate-200"
-      style={{ width, height: size }}
-    >
-      <Image
-        src={seal.src}
-        alt=""
-        fill
-        sizes={`${width}px`}
-        className="object-contain p-[1px]"
-      />
-    </span>
+    </>
   );
 }
 
@@ -1428,7 +455,7 @@ const STEP_ICONS: Record<StepIcon, typeof Check> = {
   calendar: CalendarDays,
   file: FileText,
   payment: CreditCard,
-  spark: Sparkles,
+  spark: Zap,
   shield: ShieldCheck,
 };
 
@@ -1628,6 +655,30 @@ function GuideHeading({ children }: { children: React.ReactNode }) {
   );
 }
 
+function ScenarioCard({
+  phrase,
+  result,
+  chain,
+}: {
+  phrase: string;
+  result: string;
+  chain?: string;
+}) {
+  return (
+    <div className="rounded-xl bg-slate-50/80 p-3.5">
+      <TypeThis>{phrase}</TypeThis>
+      <p className="mt-2 text-[12px] leading-relaxed text-slate-500">
+        {result}
+      </p>
+      {chain && (
+        <p className="mt-1.5 text-[12px] leading-relaxed text-slate-600">
+          <span className="font-semibold text-[#0a4f9e]">Then:</span> {chain}
+        </p>
+      )}
+    </div>
+  );
+}
+
 function DemoGuideModal({
   open,
   onClose,
@@ -1656,7 +707,7 @@ function DemoGuideModal({
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="animate-bubble-in scrollbar-subtle max-h-[85vh] w-full max-w-xl overflow-y-auto rounded-3xl bg-white p-7 shadow-2xl"
+        className="animate-bubble-in scrollbar-subtle max-h-[88vh] w-full max-w-4xl overflow-y-auto rounded-3xl bg-white p-7 shadow-2xl"
       >
         <div className="flex items-center gap-3">
           <AgentMark size={30} />
@@ -1678,94 +729,188 @@ function DemoGuideModal({
 
         <div className="mt-5">
           <GuideHeading>The one-liner</GuideHeading>
-          <p className="text-[13.5px] leading-relaxed text-slate-600">
+          <p className="max-w-2xl text-[13.5px] leading-relaxed text-slate-600">
             &ldquo;One PhilSys login, one conversation — and an AI agent
             transacts with 34 government agencies for you: it verifies, books,
             pays, and hands you print-ready documents.&rdquo;
           </p>
 
-          <GuideHeading>Act 1 — The hero flow (~90s)</GuideHeading>
-          <ol className="space-y-2.5">
-            <GuideStep n={1}>
-              Type <TypeThis>Renew my passport</TypeThis> (or click the chip).
-              While the timeline runs, narrate it: &ldquo;PhilSys verified me,
-              DFA pulled my record, checked eligibility, found the nearest slot
-              — I never filled a form.&rdquo; Point at the agency seals.
-            </GuideStep>
-            <GuideStep n={2}>
-              When the reply streams in, click{" "}
-              <TypeThis>Completed 4 steps…</TypeThis> to expand the audit trail
-              — &ldquo;every action is logged and consented.&rdquo;
-            </GuideStep>
-            <GuideStep n={3}>
-              Click <TypeThis>Confirm this slot</TypeThis> on the card — the
-              agent books it end-to-end: reference number, email, SMS, calendar.
-            </GuideStep>
-            <GuideStep n={4}>
-              <strong>Wow moment:</strong> click{" "}
-              <TypeThis>Print appointment pass</TypeThis> — a pre-filled,
-              print-ready government document opens. Choose &ldquo;Save as
-              PDF&rdquo; in the dialog. Pause and let it land.
-            </GuideStep>
-          </ol>
+          <div className="grid gap-x-8 sm:grid-cols-2">
+            <div>
+              <GuideHeading>Act 1 — The hero flow (~90s)</GuideHeading>
+              <ol className="space-y-2.5">
+                <GuideStep n={1}>
+                  Type <TypeThis>Find the nearest DFA office</TypeThis>. While
+                  the timeline runs, narrate it: &ldquo;PhilSys verified me, PSA
+                  located my address, DFA returned live slots — I never filled a
+                  form.&rdquo; A real map of passport sites appears — point at
+                  the pulsing recommended pin, hover the others.
+                </GuideStep>
+                <GuideStep n={2}>
+                  When the reply streams in, click{" "}
+                  <TypeThis>Completed 4 steps…</TypeThis> to expand the audit
+                  trail — &ldquo;every action is logged and consented.&rdquo;
+                </GuideStep>
+                <GuideStep n={3}>
+                  Click{" "}
+                  <TypeThis>{`Book Megamall · ${D.dfaShort}, 10:30 AM`}</TypeThis>{" "}
+                  under the map — the agent books it end-to-end: reference
+                  number, email, SMS, calendar.
+                </GuideStep>
+                <GuideStep n={4}>
+                  <strong>Wow moment:</strong> click{" "}
+                  <TypeThis>Print appointment pass</TypeThis> — a pre-filled,
+                  print-ready government document opens. Choose &ldquo;Save as
+                  PDF&rdquo; in the dialog. Pause and let it land.
+                </GuideStep>
+              </ol>
 
-          <GuideHeading>Act 2 — Breadth (~60s)</GuideHeading>
-          <ol className="space-y-2.5">
-            <GuideStep n={5}>
-              Click <TypeThis>New conversation</TypeThis>, type{" "}
-              <TypeThis>Get an NBI clearance</TypeThis>, then click{" "}
-              <TypeThis>Pay with eGov Pay</TypeThis> — an official receipt
-              appears. Print it too.
-            </GuideStep>
-            <GuideStep n={6}>
-              New conversation → <TypeThis>Check my SSS contributions</TypeThis>{" "}
-              → point at the live data card →{" "}
-              <TypeThis>Print contribution statement</TypeThis>.
-            </GuideStep>
-            <GuideStep n={7}>
-              New conversation → <TypeThis>PhilHealth member record</TypeThis> →
-              click <TypeThis>Email certified MDR</TypeThis> — digitally signed
-              and QR-verifiable.
-            </GuideStep>
-          </ol>
+              <GuideHeading>Act 2 — Breadth (~60s)</GuideHeading>
+              <ol className="space-y-2.5">
+                <GuideStep n={5}>
+                  Click <TypeThis>New conversation</TypeThis>, type{" "}
+                  <TypeThis>Get an NBI clearance</TypeThis>, then click{" "}
+                  <TypeThis>Pay with eGov Pay</TypeThis> — an official receipt
+                  appears. Print it too.
+                </GuideStep>
+                <GuideStep n={6}>
+                  New conversation →{" "}
+                  <TypeThis>Check my SSS contributions</TypeThis> → point at the
+                  live data card →{" "}
+                  <TypeThis>Print contribution statement</TypeThis>.
+                </GuideStep>
+                <GuideStep n={7}>
+                  New conversation → <TypeThis>PhilHealth member record</TypeThis>{" "}
+                  → click <TypeThis>Email certified MDR</TypeThis> — digitally
+                  signed and QR-verifiable.
+                </GuideStep>
+              </ol>
+            </div>
 
-          <GuideHeading>Act 3 — LTO violation alarm (~45s)</GuideHeading>
-          <ol className="space-y-2.5">
-            <GuideStep n={8}>
-              New conversation →{" "}
-              <TypeThis>Check if I have any LTO violations</TypeThis>. Let the
-              <TypeThis>Thinking...</TypeThis> loader breathe before the LTO/OGA
-              trace appears.
-            </GuideStep>
-            <GuideStep n={9}>
-              Open <TypeThis>Completed 4 steps…</TypeThis> and call out the OGA
-              alarm: LTO transactions are blocked until the case is settled.
-            </GuideStep>
-            <GuideStep n={10}>
-              Point at the case card:{" "}
-              <TypeThis>TRX-LETAS-260210-4507860</TypeThis>,{" "}
-              <TypeThis>5.STS-8 Obstruction</TypeThis>, status{" "}
-              <TypeThis>PENDING</TypeThis>, source <TypeThis>OGA</TypeThis>.
-              Click <TypeThis>Proceed to Payment</TypeThis> to show the
-              settlement handoff.
-            </GuideStep>
-          </ol>
+            <div>
+              <GuideHeading>Act 3 — LTO violation alarm (~45s)</GuideHeading>
+              <ol className="space-y-2.5">
+                <GuideStep n={8}>
+                  New conversation →{" "}
+                  <TypeThis>Check if I have any LTO violations</TypeThis>. Let
+                  the <TypeThis>Thinking...</TypeThis> loader breathe before the
+                  LTO/OGA trace appears.
+                </GuideStep>
+                <GuideStep n={9}>
+                  Open <TypeThis>Completed 4 steps…</TypeThis> and call out the
+                  OGA alarm: LTO transactions are blocked until the case is
+                  settled.
+                </GuideStep>
+                <GuideStep n={10}>
+                  Point at the case card:{" "}
+                  <TypeThis>TRX-LETAS-260210-4507860</TypeThis>,{" "}
+                  <TypeThis>5.STS-8 Obstruction</TypeThis>, status{" "}
+                  <TypeThis>PENDING</TypeThis>, source <TypeThis>OGA</TypeThis>.
+                  Click <TypeThis>Proceed to Payment</TypeThis> to show the
+                  settlement handoff.
+                </GuideStep>
+              </ol>
 
-          <GuideHeading>Act 4 — Polish (~30s)</GuideHeading>
-          <ol className="space-y-2.5">
-            <GuideStep n={11}>
-              Show the sidebar: every chat is saved and highlighted — click an
-              older one to jump back with its full transcript.
-            </GuideStep>
-            <GuideStep n={12}>
-              Tap the mic and say{" "}
-              <TypeThis>Renew my driver&apos;s license</TypeThis> — voice works.
-            </GuideStep>
-            <GuideStep n={13}>
-              End with <TypeThis>Salamat!</TypeThis> — the agent replies in
-              Taglish. Mention the copy button under every reply.
-            </GuideStep>
-          </ol>
+              <GuideHeading>Act 4 — Polish (~30s)</GuideHeading>
+              <ol className="space-y-2.5">
+                <GuideStep n={11}>
+                  Show the sidebar: every chat is saved and highlighted — click
+                  an older one to jump back with its full transcript.
+                </GuideStep>
+                <GuideStep n={12}>
+                  Tap the mic and say{" "}
+                  <TypeThis>Renew my driver&apos;s license</TypeThis> — voice
+                  works.
+                </GuideStep>
+                <GuideStep n={13}>
+                  End with <TypeThis>Salamat!</TypeThis> — the agent replies in
+                  Taglish. Mention the copy button under every reply.
+                </GuideStep>
+              </ol>
+            </div>
+          </div>
+
+          <GuideHeading>
+            Scenario library — everything you can type
+          </GuideHeading>
+          <div className="grid gap-2.5 sm:grid-cols-2">
+            <ScenarioCard
+              phrase="Find the nearest DFA office"
+              result="4-agency run (PhilSys → PSA → DFA → rank), then a live map of 5 passport sites with your location and the recommended pin."
+              chain={`Book Megamall · ${D.dfaShort}, 10:30 AM → booking confirmation → Print appointment pass.`}
+            />
+            <ScenarioCard
+              phrase="Renew my passport"
+              result="DFA eligibility check + earliest-slot appointment card."
+              chain="Confirm this slot → booked with email/SMS/calendar. Print pre-filled application → the REAL DFA form, filled out."
+            />
+            <ScenarioCard
+              phrase="Get an NBI clearance"
+              result="Fully-online checklist: biometrics on file, purpose, fees."
+              chain="Pay with eGov Pay → official receipt card → Print official receipt or the application form."
+            />
+            <ScenarioCard
+              phrase="Check my SSS contributions"
+              result="Live contribution table — monthly postings, ₱142,470 total, 87 months."
+              chain="Print contribution statement."
+            />
+            <ScenarioCard
+              phrase="PhilHealth member record"
+              result="Member Data Record card: PIN, member type, dependents, premium status."
+              chain="Email certified MDR → issued + sent → Print MDR copy → the REAL PhilHealth PMRF, filled out."
+            />
+            <ScenarioCard
+              phrase="Renew my driver's license"
+              result="LTO renewal checklist — license on file, no violations, CDE exam required."
+              chain="Start CDE exam → enrolled + link emailed → Print renewal application → the REAL LTO Form 21, filled out."
+            />
+            <ScenarioCard
+              phrase="Check if I have any LTO violations"
+              result="OGA alarm case card — TRX-LETAS case no., 5.STS-8 Obstruction, PENDING, all LTO transactions blocked."
+              chain="Proceed to Payment → settlement handoff + alarm-lift request."
+            />
+            <ScenarioCard
+              phrase="Apply for a Postal ID"
+              result={`The memory flex: recalls you're in Mandaluyong, your SMS + email reminder preference, and your ${D.dfaShort} DFA appointment — then attaches all 3 requirements from your Vault as clickable file chips. Open one live: the real PSA certificate PDF renders.`}
+              chain={`Book capture · ${D.postalShort}, 9:00 AM → booked around your existing schedule → Print appointment pass listing the vault documents.`}
+            />
+            <ScenarioCard
+              phrase="Do I need to file my taxes?"
+              result="BIR breadth answer: TIN active at RDO 40, 2025 return filed via substituted filing — no card, pure knowledge."
+            />
+            <ScenarioCard
+              phrase="Salamat!"
+              result="Instant Taglish reply with no agency run — perfect for the tiering story: “heuristics answered that one for free.”"
+            />
+            <ScenarioCard
+              phrase="Help me get a business permit"
+              result="Anything unscripted falls back to a 3-step service-directory discovery run — the agent never dead-ends."
+            />
+          </div>
+
+          <GuideHeading>Beyond the chat</GuideHeading>
+          <div className="grid gap-2.5 sm:grid-cols-2">
+            <ScenarioCard
+              phrase="Connected agencies"
+              result="Sidebar page — 8 agencies live with real logos; click Connect on Pag-IBIG and watch it handshake and flip to Connected."
+            />
+            <ScenarioCard
+              phrase="Memory"
+              result={`What the agent remembers with sources — the Mandaluyong address, reminder preferences, and the ${D.dfaShort} appointment it uses in the Postal ID scenario.`}
+            />
+            <ScenarioCard
+              phrase="Vault"
+              result="The document vault: open the actual PSA birth certificate, Meralco bill, and 2×2 photo — the same files the Postal ID chat links to. Upload any file live and it lands encrypted on top."
+            />
+            <ScenarioCard
+              phrase="How it works"
+              result="The architecture page: challenge, request lifecycle, tiered AI with the −94% cost story, data boundaries. Your ammo for judges' technical questions."
+            />
+            <ScenarioCard
+              phrase="Profile (click your avatar)"
+              result="Read-only PhilSys identity: personal info, contact details, and every linked agency record with live statuses."
+            />
+          </div>
 
           <GuideHeading>Pro tips</GuideHeading>
           <ul className="space-y-1.5 text-[13px] leading-relaxed text-slate-500">
@@ -1778,13 +923,45 @@ function DemoGuideModal({
               if there&apos;s no printer on stage.
             </li>
             <li>
+              • The map needs internet (basemap tiles) — everything else runs
+              offline.
+            </li>
+            <li>
+              • All scenario dates are computed from today — the DFA slot is
+              always in two weeks, the Postal ID capture two days after, so
+              the story matches whatever day you present.
+            </li>
+            <li>
               • Refreshing the page resets all conversations to the seeded
-              five.
+              list.
             </li>
             <li>• Go full screen and close extra tabs before you start.</li>
           </ul>
         </div>
       </div>
+    </div>
+  );
+}
+
+function TodayChip() {
+  const [now, setNow] = useState(() => new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), 30_000);
+    return () => clearInterval(timer);
+  }, []);
+
+  return (
+    <div className="font-pixel inline-flex items-center gap-2 rounded-full bg-white/80 px-3.5 py-1.5 text-[9px] uppercase tracking-[0.16em] text-slate-500 shadow-[0_8px_20px_-10px_rgba(6,61,125,0.3)] backdrop-blur">
+      <CalendarDays size={11} className="shrink-0 text-[#0a4f9e]" />
+      {now.toLocaleDateString("en-US", {
+        weekday: "long",
+        month: "long",
+        day: "numeric",
+        year: "numeric",
+      })}
+      <span className="h-1 w-1 rounded-full bg-slate-300" />
+      {now.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
     </div>
   );
 }
@@ -1801,7 +978,7 @@ function CopyButton({ text }: { text: string }) {
   );
 
   const copy = () => {
-    navigator.clipboard?.writeText(text).catch(() => {});
+    navigator.clipboard?.writeText(text.replaceAll("**", "")).catch(() => {});
     setCopied(true);
     if (timerRef.current) clearTimeout(timerRef.current);
     timerRef.current = setTimeout(() => setCopied(false), 1600);
@@ -1866,6 +1043,71 @@ function TypingBubble() {
   );
 }
 
+/* Tokenize "**bold**" markers into word tokens that survive streaming.
+   Bold is tracked as character ranges so punctuation stays glued to words. */
+function tokenizeRich(text: string): { t: string; b: boolean }[] {
+  const ranges: [number, number][] = [];
+  let plain = "";
+  let bold = false;
+  let rangeStart = 0;
+  let i = 0;
+  while (i < text.length) {
+    if (text.startsWith("**", i)) {
+      if (!bold) {
+        rangeStart = plain.length;
+        bold = true;
+      } else {
+        ranges.push([rangeStart, plain.length]);
+        bold = false;
+      }
+      i += 2;
+    } else {
+      plain += text[i];
+      i += 1;
+    }
+  }
+  if (bold) ranges.push([rangeStart, plain.length]);
+
+  const tokens: { t: string; b: boolean }[] = [];
+  let idx = 0;
+  for (const w of plain.split(" ")) {
+    const wordStart = idx;
+    idx += w.length + 1;
+    if (!w) continue;
+    const b = ranges.some(
+      ([s, e]) => wordStart < e && wordStart + w.length > s
+    );
+    tokens.push({ t: w, b });
+  }
+  return tokens;
+}
+
+function RichTokens({ tokens }: { tokens: { t: string; b: boolean }[] }) {
+  return (
+    <>
+      {tokens.map((tok, i) => (
+        <span key={i}>
+          {tok.b ? (
+            <strong className="font-semibold text-slate-900">{tok.t}</strong>
+          ) : (
+            tok.t
+          )}
+          {i < tokens.length - 1 ? " " : ""}
+        </span>
+      ))}
+    </>
+  );
+}
+
+function RichText({ text }: { text: string }) {
+  const tokens = useMemo(() => tokenizeRich(text), [text]);
+  return (
+    <p className="text-[16.5px] leading-[1.65] text-slate-700">
+      <RichTokens tokens={tokens} />
+    </p>
+  );
+}
+
 function StreamedText({
   text,
   onDone,
@@ -1875,7 +1117,7 @@ function StreamedText({
   onDone: () => void;
   onTick: () => void;
 }) {
-  const words = useMemo(() => text.split(" "), [text]);
+  const words = useMemo(() => tokenizeRich(text), [text]);
   const [count, setCount] = useState(1);
   const doneRef = useRef(onDone);
   const tickRef = useRef(onTick);
@@ -1896,150 +1138,9 @@ function StreamedText({
 
   return (
     <p className="text-[16.5px] leading-[1.65] text-slate-700">
-      {words.slice(0, count).join(" ")}
+      <RichTokens tokens={words.slice(0, count)} />
       <span className="stream-cursor" aria-hidden />
     </p>
-  );
-}
-
-/* ------------------------------ sidebar pieces ----------------------------- */
-
-function SidebarNavButton({
-  active = false,
-  expanded,
-  icon,
-  label,
-  onClick,
-}: {
-  active?: boolean;
-  expanded: boolean;
-  icon: React.ReactNode;
-  label: string;
-  onClick?: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      title={label}
-      onClick={onClick}
-      aria-current={active ? "page" : undefined}
-      className={`group flex h-11 w-full cursor-pointer items-center justify-center text-[14px] font-medium transition-all duration-200 ${
-        expanded ? "sm:justify-start sm:gap-3 sm:px-3" : "sm:px-0"
-      } ${
-        active
-          ? "bg-brand-gradient rounded-xl text-white shadow-[0_14px_30px_rgba(6,61,125,0.2)]"
-          : "rounded-2xl text-slate-500 hover:bg-[#f6f9ff] hover:text-[#0a4f9e]"
-      }`}
-    >
-      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl">
-        {icon}
-      </span>
-      {expanded && <span className="hidden truncate sm:block">{label}</span>}
-    </button>
-  );
-}
-
-function RecentConversations({
-  expanded,
-  conversations,
-  activeId,
-  onSelect,
-}: {
-  expanded: boolean;
-  conversations: Conversation[];
-  activeId: string | null;
-  onSelect: (id: string) => void;
-}) {
-  return (
-    <div className="space-y-2">
-      {expanded && (
-        <div className="font-pixel hidden px-3 text-[9px] uppercase tracking-[0.18em] text-slate-400 sm:block">
-          Previous conversations
-        </div>
-      )}
-      <div className="space-y-1.5">
-        {conversations.map((conversation) => {
-          const active = conversation.id === activeId;
-          return (
-            <button
-              key={conversation.id}
-              type="button"
-              title={conversation.title}
-              onClick={() => onSelect(conversation.id)}
-              aria-current={active ? "true" : undefined}
-              className={`group animate-step-in flex w-full cursor-pointer items-center justify-center rounded-xl text-left transition-all duration-200 ${
-                active
-                  ? "bg-[#0a4f9e]/10"
-                  : "hover:bg-[#f6f9ff] hover:text-[#0a4f9e]"
-              } ${
-                expanded ? "sm:justify-start sm:gap-3 sm:px-3 sm:py-2.5" : "h-10 sm:px-0"
-              }`}
-            >
-              <span
-                className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl transition ${
-                  active
-                    ? "bg-[#0a4f9e] text-white"
-                    : "bg-slate-100 text-slate-400 group-hover:bg-[#0a4f9e]/10 group-hover:text-[#0a4f9e]"
-                }`}
-              >
-                <MessageCircle size={15} />
-              </span>
-              {expanded && (
-                <span className="hidden min-w-0 sm:block">
-                  <span
-                    className={`block truncate text-[13px] transition ${
-                      active
-                        ? "font-semibold text-[#0a4f9e]"
-                        : "font-medium text-slate-600 group-hover:text-[#0a4f9e]"
-                    }`}
-                  >
-                    {conversation.title}
-                  </span>
-                </span>
-              )}
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-function SidebarControlButton({
-  active = false,
-  danger = false,
-  expanded,
-  icon,
-  label,
-  onClick,
-}: {
-  active?: boolean;
-  danger?: boolean;
-  expanded: boolean;
-  icon: React.ReactNode;
-  label: string;
-  onClick: () => void;
-}) {
-  const tone = active
-    ? "bg-[#0a4f9e]/10 text-[#0a4f9e]"
-    : danger
-      ? "text-slate-400 hover:bg-red-50 hover:text-red-500"
-      : "text-slate-400 hover:bg-[#f6f9ff] hover:text-[#0a4f9e]";
-
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      title={label}
-      className={`flex h-11 w-full cursor-pointer items-center justify-center rounded-2xl text-[14px] font-medium transition-all duration-200 ${
-        expanded ? "sm:justify-start sm:gap-3 sm:px-3" : "sm:px-0"
-      } ${tone}`}
-    >
-      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl">
-        {icon}
-      </span>
-      {expanded && <span className="hidden truncate sm:block">{label}</span>}
-    </button>
   );
 }
 
@@ -2057,7 +1158,7 @@ function CardShell({
   children: React.ReactNode;
 }) {
   return (
-    <div className="hairline max-w-md overflow-hidden rounded-2xl bg-white shadow-[0_18px_44px_-26px_rgba(6,61,125,0.35)]">
+    <div className="max-w-md overflow-hidden rounded-2xl bg-white shadow-[0_18px_44px_-26px_rgba(6,61,125,0.35)]">
       <div className="flex items-center gap-2.5 border-b border-slate-100 bg-[#fafcff] px-5 py-3">
         <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-[#0a4f9e]/10 text-[#0a4f9e]">
           {icon}
@@ -2209,7 +1310,7 @@ function ServiceCard({
 
   if (card.kind === "ltoViolation") {
     return (
-      <div className="hairline max-w-xl overflow-hidden rounded-2xl bg-white shadow-[0_18px_44px_-26px_rgba(6,61,125,0.35)]">
+      <div className="max-w-xl overflow-hidden rounded-2xl bg-white shadow-[0_18px_44px_-26px_rgba(6,61,125,0.35)]">
         <div className="bg-brand-gradient relative overflow-hidden px-5 py-5 text-white">
           <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.12),transparent_55%)]" />
           <div className="relative flex items-start gap-3">
@@ -2348,6 +1449,110 @@ function ServiceCard({
           {secondaryPrint}
         </div>
       </CardShell>
+    );
+  }
+
+  if (card.kind === "map") {
+    return (
+      <div className="max-w-xl overflow-hidden rounded-2xl bg-white shadow-[0_18px_44px_-26px_rgba(6,61,125,0.35)]">
+        <div className="flex items-center gap-2.5 border-b border-slate-100 bg-[#fafcff] px-5 py-3">
+          <AgencySeal label="DFA" size={24} />
+          <span className="font-pixel min-w-0 truncate text-[10.5px] uppercase tracking-[0.16em] text-[#0a4f9e]">
+            {card.title}
+          </span>
+          <span className="font-pixel ml-auto flex shrink-0 items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-[8.5px] uppercase tracking-[0.14em] text-emerald-600">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+            {card.sites.length} sites live
+          </span>
+        </div>
+
+        <div className="h-64 w-full">
+          <SiteMap
+            theme="light"
+            center={[card.center[0], card.center[1]]}
+            zoom={card.zoom}
+          >
+            <MapControls />
+
+            {/* your location */}
+            <MapMarker longitude={card.you.lng} latitude={card.you.lat}>
+              <MarkerContent>
+                <span className="relative flex h-4 w-4">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#2f89e6] opacity-40" />
+                  <span className="relative inline-flex h-4 w-4 rounded-full border-2 border-white bg-[#2f89e6] shadow-md" />
+                </span>
+              </MarkerContent>
+              <MarkerTooltip>{card.you.label}</MarkerTooltip>
+            </MapMarker>
+
+            {card.sites.map((s) => (
+              <MapMarker key={s.id} longitude={s.lng} latitude={s.lat}>
+                <MarkerContent>
+                  {s.recommended ? (
+                    <span className="relative block">
+                      <span className="absolute -inset-1.5 animate-ping rounded-full bg-[#0a4f9e]/25" />
+                      <span className="relative flex items-center gap-1.5 rounded-full bg-white py-1 pl-1 pr-2.5 shadow-lg ring-2 ring-[#0a4f9e]">
+                        <AgencySeal label="DFA" size={20} />
+                        <span className="whitespace-nowrap text-[10px] font-bold text-[#0a4f9e]">
+                          {s.slot.split(" · ")[0]}
+                        </span>
+                      </span>
+                    </span>
+                  ) : (
+                    <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white shadow-md ring-1 ring-slate-300">
+                      <AgencySeal label="DFA" size={20} />
+                    </span>
+                  )}
+                </MarkerContent>
+                <MarkerTooltip>{s.name}</MarkerTooltip>
+                <MarkerPopup>
+                  <div className="min-w-40 p-1">
+                    <div className="text-[12.5px] font-semibold text-slate-700">
+                      {s.name}
+                    </div>
+                    <div className="mt-1 text-[11.5px] text-slate-500">
+                      {s.distance} away · earliest slot {s.slot}
+                    </div>
+                  </div>
+                </MarkerPopup>
+              </MapMarker>
+            ))}
+          </SiteMap>
+        </div>
+
+        <div className="px-5">
+          {card.sites.map((s) => (
+            <div
+              key={s.id}
+              className="flex items-center gap-3 border-b border-slate-50 py-2.5 last:border-0"
+            >
+              <span
+                className={`h-2 w-2 shrink-0 rounded-full ${
+                  s.recommended ? "bg-[#0a4f9e]" : "bg-slate-300"
+                }`}
+              />
+              <span className="min-w-0 flex-1 truncate text-[13.5px] font-medium text-slate-700">
+                {s.name}
+              </span>
+              <span className="font-pixel shrink-0 text-[9px] uppercase tracking-[0.12em] text-slate-400">
+                {s.distance} · {s.slot}
+              </span>
+              {s.recommended && (
+                <span className="font-pixel shrink-0 rounded-full bg-emerald-50 px-2 py-0.5 text-[8.5px] uppercase tracking-[0.14em] text-emerald-600">
+                  Nearest
+                </span>
+              )}
+            </div>
+          ))}
+        </div>
+
+        <div className="px-5 py-4">
+          <ActionButton onClick={primary}>
+            {card.action} <ChevronRight size={16} />
+          </ActionButton>
+          {secondaryPrint}
+        </div>
+      </div>
     );
   }
 

@@ -7,6 +7,8 @@
  *    have no blank official form — rendered as clean eGov-generated documents.
  */
 
+import { DEMO_DATES as D } from "./dates";
+
 export type PrintKind =
   | "dfa-form"
   | "dfa-pass"
@@ -14,7 +16,8 @@ export type PrintKind =
   | "nbi-receipt"
   | "sss-statement"
   | "ph-mdr"
-  | "lto-form";
+  | "lto-form"
+  | "postal-pass";
 
 export type PrintUser = { name: string; firstName: string; pcn: string };
 
@@ -47,13 +50,13 @@ function overlaySpec(kind: PrintKind, user: PrintUser): OverlaySpec | null {
         { x: 13, y: 16.4, text: last },
         { x: 51.8, y: 16.4, text: `${first} ${middle}` },
         { x: 13, y: 20.9, text: "N/A" },
-        { x: 51.8, y: 20.9, text: "QUEZON CITY, PHILIPPINES" },
+        { x: 51.8, y: 20.9, text: "MANDALUYONG CITY, PHILIPPINES" },
         { x: 14.5, y: 25.0, text: "MARCH" },
         { x: 31.5, y: 25.0, text: "8" },
         { x: 39.5, y: 25.0, text: "1998" },
         { x: 67.9, y: 25.65, text: "✓", check: true },
         { x: 25.0, y: 33.9, text: "✓", check: true },
-        { x: 22.5, y: 35.5, text: "QUEZON CITY, METRO MANILA" },
+        { x: 22.5, y: 35.5, text: "MANDALUYONG CITY, METRO MANILA" },
         { x: 74.5, y: 35.5, text: "N/A" },
         { x: 23.0, y: 37.0, text: "SOFTWARE ENGINEER" },
         { x: 76.5, y: 37.0, text: "0917•••4482" },
@@ -86,11 +89,11 @@ function overlaySpec(kind: PrintKind, user: PrintUser): OverlaySpec | null {
         { x: 4.9, y: 35.3, text: "03", size: 1.3, spacing: 2.12 },
         { x: 12.5, y: 35.3, text: "08", size: 1.3, spacing: 2.12 },
         { x: 20.3, y: 35.3, text: "1998", size: 1.3, spacing: 1.9 },
-        { x: 30.8, y: 36.2, text: "QUEZON CITY, PHILIPPINES", size: 1.15 },
+        { x: 30.8, y: 36.2, text: "MANDALUYONG CITY, PHILIPPINES", size: 1.15 },
         { x: 3.9, y: 39.4, text: "✓", check: true },
         { x: 11.4, y: 39.2, text: "✓", check: true },
         { x: 29.7, y: 39.4, text: "✓", check: true },
-        { x: 4.5, y: 48.3, text: "QUEZON CITY, METRO MANILA", size: 1.15 },
+        { x: 4.5, y: 48.3, text: "MANDALUYONG CITY, METRO MANILA", size: 1.15 },
         { x: 70.0, y: 52.0, text: "0917 ••• 4482", size: 1.2 },
         { x: 70.0, y: 58.5, text: "BRY••••@GMAIL.COM", size: 1.15 },
         { x: 4.1, y: 79.4, text: "✓", check: true },
@@ -104,7 +107,7 @@ function overlaySpec(kind: PrintKind, user: PrintUser): OverlaySpec | null {
       title: "LTO Form 21 (APL) — Pre-filled",
       fields: [
         { x: 4.0, y: 16.9, text: `${last}, ${first} ${middle}`, size: 1.25, spacing: 1.0 },
-        { x: 4.0, y: 19.3, text: "QUEZON CITY, METRO MANILA", size: 1.2 },
+        { x: 4.0, y: 19.3, text: "MANDALUYONG CITY, METRO MANILA", size: 1.2 },
         { x: 57.0, y: 19.3, text: "0917 ••• 4482", size: 1.2 },
         { x: 4.0, y: 21.6, text: "FILIPINO", size: 1.2 },
         { x: 15.0, y: 21.6, text: "M", size: 1.2 },
@@ -114,7 +117,7 @@ function overlaySpec(kind: PrintKind, user: PrintUser): OverlaySpec | null {
         { x: 64.4, y: 21.1, text: "N03", size: 1.25, spacing: 1.28 },
         { x: 74.3, y: 21.1, text: "12", size: 1.25, spacing: 1.28 },
         { x: 80.5, y: 21.1, text: "345678", size: 1.25, spacing: 1.28 },
-        { x: 57.0, y: 23.5, text: "QUEZON CITY", size: 1.2 },
+        { x: 57.0, y: 23.5, text: "MANDALUYONG", size: 1.2 },
         { x: 3.9, y: 23.6, text: "✓", check: true },
         { x: 3.7, y: 29.8, text: "✓", check: true },
         { x: 3.8, y: 40.0, text: "✓", check: true },
@@ -168,6 +171,7 @@ const SEALS = {
   dfa: { initials: "DFA", color: "#0b3d91", fullName: "Department of Foreign Affairs" },
   nbi: { initials: "NBI", color: "#1b2a6b", fullName: "National Bureau of Investigation" },
   sss: { initials: "SSS", color: "#003da5", fullName: "Social Security System" },
+  phlpost: { initials: "PHL", color: "#8a6d1a", fullName: "Philippine Postal Corporation" },
 };
 
 function generatedSpec(kind: PrintKind, user: PrintUser): GeneratedSpec | null {
@@ -176,7 +180,7 @@ function generatedSpec(kind: PrintKind, user: PrintUser): GeneratedSpec | null {
     { label: "PhilSys card number", value: user.pcn },
     { label: "Email", value: "bry••••@gmail.com" },
     { label: "Mobile", value: "+63 917 ••• 4482" },
-    { label: "Address", value: "Quezon City, Metro Manila" },
+    { label: "Address", value: "Mandaluyong City, Metro Manila" },
   ];
 
   switch (kind) {
@@ -185,7 +189,7 @@ function generatedSpec(kind: PrintKind, user: PrintUser): GeneratedSpec | null {
         seal: SEALS.dfa,
         formNo: "DFA-PASS-01",
         title: "Appointment Pass",
-        ref: "DFA-QC-260721-1030-8842",
+        ref: D.dfaRef,
         sections: [
           {
             heading: "Appointment details",
@@ -193,8 +197,8 @@ function generatedSpec(kind: PrintKind, user: PrintUser): GeneratedSpec | null {
               { label: "Applicant", value: user.name },
               { label: "PhilSys card number", value: user.pcn },
               { label: "Service", value: "ePassport Renewal" },
-              { label: "Site", value: "DFA CO Ali Mall, Araneta City, QC" },
-              { label: "Date", value: "Tuesday, July 21, 2026" },
+              { label: "Site", value: "DFA CO SM Megamall, Mandaluyong" },
+              { label: "Date", value: D.dfaLong },
               { label: "Time", value: "10:30 AM" },
             ],
           },
@@ -211,7 +215,7 @@ function generatedSpec(kind: PrintKind, user: PrintUser): GeneratedSpec | null {
         seal: SEALS.nbi,
         formNo: "NBI-CL-ONLINE (2026)",
         title: "Clearance Application — Online",
-        ref: "NBI-2026-0707-5521",
+        ref: D.nbiAppRef,
         sections: [
           { heading: "Personal information", fields: personal },
           {
@@ -236,7 +240,7 @@ function generatedSpec(kind: PrintKind, user: PrintUser): GeneratedSpec | null {
         seal: SEALS.nbi,
         formNo: "OR Series 2026",
         title: "Official Receipt",
-        ref: "OR № 2026-0707-8812",
+        ref: `OR № ${D.orRef}`,
         sections: [
           {
             heading: "Payment details",
@@ -275,9 +279,9 @@ function generatedSpec(kind: PrintKind, user: PrintUser): GeneratedSpec | null {
           {
             heading: "Recent postings",
             fields: [
-              { label: "June 2026", value: "₱1,830.00 — Posted" },
-              { label: "May 2026", value: "₱1,830.00 — Posted" },
-              { label: "April 2026", value: "₱1,830.00 — Posted" },
+              { label: D.sssMonth1, value: "₱1,830.00 — Posted" },
+              { label: D.sssMonth2, value: "₱1,830.00 — Posted" },
+              { label: D.sssMonth3, value: "₱1,830.00 — Posted" },
             ],
           },
           {
@@ -285,12 +289,46 @@ function generatedSpec(kind: PrintKind, user: PrintUser): GeneratedSpec | null {
             fields: [
               { label: "Total contributions", value: "₱142,470.00" },
               { label: "Months posted", value: "87" },
-              { label: "Posted through", value: "June 2026" },
+              { label: "Posted through", value: D.sssMonth1 },
             ],
           },
         ],
         checks: ["All employer contributions posted and up to date"],
         note: "Statement generated from live SSS records via eGov Agent on your request.",
+      };
+    case "postal-pass":
+      return {
+        seal: SEALS.phlpost,
+        formNo: "PHLPOST-PID-01",
+        title: "Postal ID Capture — Appointment Pass",
+        ref: D.postalRef,
+        sections: [
+          {
+            heading: "Appointment details",
+            fields: [
+              { label: "Applicant", value: user.name },
+              { label: "PhilSys card number", value: user.pcn },
+              { label: "Service", value: "Postal ID — biometrics capture" },
+              { label: "Site", value: "Mandaluyong Central Post Office" },
+              { label: "Date", value: D.postalLong },
+              { label: "Time", value: "9:00 AM" },
+            ],
+          },
+          {
+            heading: "Attached from your document vault",
+            fields: [
+              { label: "Identity", value: "PSA Birth Certificate.pdf" },
+              { label: "Proof of address", value: `Meralco bill (${D.sssMonth1})` },
+              { label: "Photo", value: "2×2 ID Photo.jpg" },
+            ],
+          },
+        ],
+        checks: [
+          "Application pre-filled — nothing to fill out on site",
+          "Fee ₱504.00 payable via eGov Pay",
+          "Reminders: SMS + email, per your saved preference",
+        ],
+        note: `Scheduled around your existing DFA appointment (${D.dfaShort}). Assembled automatically from your eGov memory and document vault.`,
       };
     default:
       return null;

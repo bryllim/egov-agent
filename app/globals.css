@@ -14,6 +14,14 @@
   --color-brand-light: var(--brand-light);
   --color-brand-dark: var(--brand-dark);
   --color-brand-ink: var(--brand-ink);
+  /* shadcn-style tokens used by components/ui/map.tsx (mapcn) */
+  --color-muted: #f1f5f9;
+  --color-muted-foreground: #64748b;
+  --color-accent: #f6f9ff;
+  --color-popover: #ffffff;
+  --color-popover-foreground: #0b1624;
+  --color-border: rgba(11, 22, 36, 0.09);
+  --color-ring: rgba(10, 79, 158, 0.35);
   --font-sans: var(--font-jakarta);
   --font-mono: var(--font-geist-mono);
 }
@@ -233,6 +241,56 @@ body {
   border-radius: 999px;
   background: #0a4f9e;
   animation: cursor-blink 0.9s steps(1) infinite;
+}
+
+/* Faint looping aurora in Philippine flag colors — behind the empty chat state */
+@keyframes aurora-drift {
+  0% {
+    transform: translate(-8%, -4%) rotate(0deg) scale(1);
+  }
+  33% {
+    transform: translate(7%, 6%) rotate(120deg) scale(1.18);
+  }
+  66% {
+    transform: translate(-5%, 8%) rotate(240deg) scale(0.94);
+  }
+  100% {
+    transform: translate(-8%, -4%) rotate(360deg) scale(1);
+  }
+}
+@keyframes aurora-drift-reverse {
+  0% {
+    transform: translate(6%, 5%) rotate(0deg) scale(1.1);
+  }
+  50% {
+    transform: translate(-7%, -6%) rotate(-180deg) scale(0.92);
+  }
+  100% {
+    transform: translate(6%, 5%) rotate(-360deg) scale(1.1);
+  }
+}
+.aurora,
+.aurora-reverse {
+  border-radius: 9999px;
+  filter: blur(64px);
+  will-change: transform;
+  pointer-events: none;
+}
+.aurora {
+  background:
+    radial-gradient(closest-side at 30% 42%, rgba(0, 56, 168, 0.4), transparent 72%),
+    radial-gradient(closest-side at 72% 34%, rgba(206, 17, 38, 0.32), transparent 72%),
+    radial-gradient(closest-side at 52% 78%, rgba(252, 209, 22, 0.42), transparent 72%);
+  animation: aurora-drift 20s ease-in-out infinite;
+  opacity: 0.65;
+}
+.aurora-reverse {
+  background:
+    radial-gradient(closest-side at 60% 60%, rgba(252, 209, 22, 0.3), transparent 70%),
+    radial-gradient(closest-side at 35% 30%, rgba(206, 17, 38, 0.22), transparent 70%),
+    radial-gradient(closest-side at 75% 45%, rgba(0, 56, 168, 0.3), transparent 70%);
+  animation: aurora-drift-reverse 26s ease-in-out infinite;
+  opacity: 0.5;
 }
 
 /* Hairline card — the only "surface" treatment in the app */
