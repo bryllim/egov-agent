@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Check, Lock, Plug } from "lucide-react";
 import { AgencySeal, sealFor } from "@/components/agency";
+import { useSensoryUI } from "@/lib/provider";
 
 type Agency = {
   label: string; // used for logo lookup
@@ -124,18 +125,19 @@ function AgencyLogo({ agency }: { agency: Agency }) {
 }
 
 function ConnectButton({ name }: { name: string }) {
+  const { playSound } = useSensoryUI();
   const [state, setState] = useState<"idle" | "connecting" | "connected">(
     "idle"
   );
 
   useEffect(() => {
     if (state !== "connecting") return;
-    const timer = setTimeout(
-      () => setState("connected"),
-      1300 + Math.random() * 700
-    );
+    const timer = setTimeout(() => {
+      setState("connected");
+      void playSound("notification.success");
+    }, 1300 + Math.random() * 700);
     return () => clearTimeout(timer);
-  }, [state]);
+  }, [playSound, state]);
 
   if (state === "connected") {
     return (

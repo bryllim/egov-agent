@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 import { AgentMark } from "@/components/brand";
 import { AgencySeal, sealFor } from "@/components/agency";
+import { useSensoryUI } from "@/lib/provider";
 import {
   Map as SiteMap,
   MapControls,
@@ -53,6 +54,7 @@ import {
 /* --------------------------------- page ----------------------------------- */
 
 export default function AgentPage() {
+  const { playSound } = useSensoryUI();
   const {
     user,
     conversations,
@@ -183,6 +185,7 @@ export default function AgentPage() {
           },
         ]);
         setStreamingId(id);
+        void playSound("notification.info");
         agentTimersRef.current = [];
       };
 
@@ -237,6 +240,7 @@ export default function AgentPage() {
       busy,
       clearAgentTimers,
       input,
+      playSound,
       setActiveConvId,
       setConversations,
       user,
@@ -259,6 +263,7 @@ export default function AgentPage() {
     const SR = w.SpeechRecognition || w.webkitSpeechRecognition;
     if (!SR) {
       setInput("Voice input is not supported in this browser");
+      void playSound("notification.error");
       return;
     }
     const rec = new SR();
@@ -273,6 +278,7 @@ export default function AgentPage() {
       setInput(transcript);
       if (e.results[e.results.length - 1].isFinal) {
         setListening(false);
+        void playSound("interaction.confirm");
         sendRef.current(transcript);
       }
     };
@@ -281,7 +287,7 @@ export default function AgentPage() {
     recognitionRef.current = rec;
     setListening(true);
     rec.start();
-  }, [listening]);
+  }, [listening, playSound]);
 
   const empty = messages.length === 0;
 
@@ -407,6 +413,9 @@ export default function AgentPage() {
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
+                if (input.trim() && !busy) {
+                  void playSound("interaction.confirm");
+                }
                 send();
               }
             }}
@@ -455,6 +464,7 @@ export default function AgentPage() {
           <button
             type="button"
             onClick={() => setShowGuide(true)}
+            data-sound="overlay.open"
             title="Demo guide"
             aria-label="Open demo guide"
             className="hairline flex h-6 w-6 cursor-pointer items-center justify-center rounded-full bg-white text-slate-400 transition hover:border-[#0a4f9e]/40 hover:text-[#0a4f9e]"
@@ -744,6 +754,7 @@ function DemoGuideModal({
             type="button"
             onClick={onClose}
             aria-label="Close demo guide"
+            data-sound="overlay.close"
             className="ml-auto flex h-8 w-8 cursor-pointer items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
           >
             <X size={16} />

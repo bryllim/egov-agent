@@ -12,9 +12,12 @@ import {
   MapPin,
   Phone,
   ShieldCheck,
+  Volume2,
+  VolumeX,
   User as UserIcon,
 } from "lucide-react";
 import { AgencySeal } from "@/components/agency";
+import { useSoundEffects } from "@/components/sound-effects";
 import { useAgentShell } from "../shell";
 import { DEMO_PROFILE } from "../brain";
 
@@ -130,6 +133,11 @@ function InfoField({
 export default function ProfilePage() {
   const router = useRouter();
   const { user } = useAgentShell();
+  const {
+    reducedMotion,
+    setSoundEffectsEnabled,
+    soundEffectsEnabled,
+  } = useSoundEffects();
 
   return (
     <div className="scrollbar-subtle flex-1 overflow-y-auto">
@@ -232,6 +240,50 @@ export default function ProfilePage() {
             or ask the eGov Agent where to go.
           </span>
         </div>
+
+        <section className="animate-fade-up delay-400 mt-8 border-t border-slate-200/80 px-1 pb-2 pt-6">
+          <div className="flex items-center gap-4">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-[#0a4f9e] shadow-[0_10px_26px_-16px_rgba(6,61,125,0.45)]">
+              {soundEffectsEnabled ? (
+                <Volume2 size={18} />
+              ) : (
+                <VolumeX size={18} />
+              )}
+            </span>
+            <div className="min-w-0 flex-1">
+              <h2 className="text-[14px] font-semibold text-slate-700">
+                Sound effects
+              </h2>
+              <p className="mt-0.5 text-[12.5px] leading-relaxed text-slate-400">
+                {reducedMotion && soundEffectsEnabled
+                  ? "On, but currently muted by your reduced motion setting."
+                  : "Play subtle feedback for taps, navigation, chat, and status updates."}
+              </p>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={soundEffectsEnabled}
+              aria-label="Sound effects"
+              data-sound="interaction.toggle"
+              onClick={() => setSoundEffectsEnabled(!soundEffectsEnabled)}
+              className={`relative h-7 w-12 shrink-0 cursor-pointer rounded-full transition-colors duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0a4f9e] ${
+                soundEffectsEnabled ? "bg-[#0a4f9e]" : "bg-slate-300"
+              }`}
+            >
+              <span
+                className={`absolute left-1 top-1 h-5 w-5 rounded-full bg-white shadow-sm transition-transform duration-200 ${
+                  soundEffectsEnabled ? "translate-x-5" : "translate-x-0"
+                }`}
+              />
+              <span className="sr-only">
+                {soundEffectsEnabled
+                  ? "Turn sound effects off"
+                  : "Turn sound effects on"}
+              </span>
+            </button>
+          </div>
+        </section>
       </div>
     </div>
   );

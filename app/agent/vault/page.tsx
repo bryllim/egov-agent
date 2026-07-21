@@ -12,6 +12,7 @@ import {
   Upload,
 } from "lucide-react";
 import { VAULT_FILES } from "../brain";
+import { useSensoryUI } from "@/lib/provider";
 
 type VaultDoc = {
   name: string;
@@ -177,6 +178,7 @@ function DocRow({ doc }: { doc: VaultDoc }) {
 
 export default function VaultPage() {
   const router = useRouter();
+  const { playSound } = useSensoryUI();
   const [docs, setDocs] = useState<VaultDoc[]>(INITIAL_DOCS);
   const [usedBytes, setUsedBytes] = useState(INITIAL_USED);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -184,6 +186,7 @@ export default function VaultPage() {
   const addFiles = (list: FileList | null) => {
     if (!list) return;
     const files = Array.from(list);
+    if (!files.length) return;
     const added = files.map((f) => ({
       name: f.name,
       size: formatSize(f.size),
@@ -192,6 +195,7 @@ export default function VaultPage() {
     }));
     setDocs((prev) => [...added, ...prev]);
     setUsedBytes((prev) => prev + files.reduce((sum, f) => sum + f.size, 0));
+    void playSound("notification.success");
   };
 
   return (

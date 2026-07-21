@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowRight, Smartphone } from "lucide-react";
+import { useSensoryUI } from "@/lib/provider";
 import {
   AgentMark,
   AgentWordmark,
@@ -26,6 +27,7 @@ function formatPcn(raw: string) {
 
 export default function IntroPage() {
   const router = useRouter();
+  const { playSound } = useSensoryUI();
   const [pcn, setPcn] = useState("");
   const [verifying, setVerifying] = useState(false);
   const verificationTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -52,9 +54,10 @@ export default function IntroPage() {
           pcn: pcn || DEMO_USER.pcn,
         })
       );
+      void playSound("notification.success");
       router.push("/agent");
     }, VERIFY_DURATION_MS);
-  }, [clearVerificationTimer, pcn, router, verifying]);
+  }, [clearVerificationTimer, pcn, playSound, router, verifying]);
 
   const pcnComplete = pcn.replace(/\D/g, "").length === 16;
 
