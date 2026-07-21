@@ -1,0 +1,51 @@
+{
+  "name": "egov-agent",
+  "version": "0.1.0",
+  "description": "An open-source conversational prototype for Philippine government-service journeys, built for the eGov Hackathon 2026.",
+  "private": true,
+  "license": "MIT",
+  "author": {
+    "name": "Bryl Lim",
+    "url": "https://bryllim.com"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bryllim/egov-agent.git"
+  },
+  "homepage": "https://github.com/bryllim/egov-agent#readme",
+  "bugs": {
+    "url": "https://github.com/bryllim/egov-agent/issues"
+  },
+  "engines": {
+    "node": ">=20.9.0"
+  },
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit",
+    "gen-vault": "node scripts/gen-vault-pdfs.js",
+    "telegram:dev": "node --env-file=.env.local scripts/telegram-polling.mjs"
+  },
+  "dependencies": {
+    "@squircle-js/react": "^1.3.0",
+    "clsx": "^2.1.1",
+    "lucide-react": "^1.23.0",
+    "maplibre-gl": "^5.24.0",
+    "next": "^16.3.2",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "tailwind-merge": "^3.6.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "^16.3.2",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  }
+}

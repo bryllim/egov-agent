@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <title>eGovPH</title>
+  <g fill="none" stroke-width="10.5" stroke-linecap="butt">
+    <path d="M53.5 32A21.5 21.5 0 0 0 16.8 16.8" stroke="#0040E7"/>
+    <path d="M16.8 16.8A21.5 21.5 0 0 0 16.8 47.2" stroke="#F2C500"/>
+    <path d="M16.8 47.2A21.5 21.5 0 0 0 53.5 32" stroke="#A60C0C"/>
+  </g>
+</svg>
