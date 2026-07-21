@@ -81,6 +81,11 @@ const FLOW: {
   logos?: string[];
 }[] = [
   {
+    icon: <MessageCircle size={15} />,
+    title: "Headless channel adapter",
+    detail: "Web chat · Viber · messaging apps · agency apps · any API client",
+  },
+  {
     icon: <Fingerprint size={15} />,
     title: "eGov Gateway",
     detail: "PhilSys eVerify session · end-to-end encrypted",
@@ -344,8 +349,8 @@ export default function HowItWorksPage() {
             How eGov Agent works
           </h1>
           <p className="mt-1.5 max-w-xl text-[14px] leading-relaxed text-slate-500">
-            One conversation in front — tiered AI, personal context, and
-            disposable task machines behind.
+            One completely headless agent behind any conversation channel —
+            with tiered AI, personal context, and disposable task machines.
           </p>
         </div>
 
@@ -445,6 +450,38 @@ export default function HowItWorksPage() {
               </div>
             </Panel>
           </div>
+
+          <Panel className="mt-4 bg-[linear-gradient(135deg,rgba(242,247,255,0.92),rgba(255,255,255,0.98))]">
+            <div className="flex items-start gap-3">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#0a4f9e] text-white shadow-[0_10px_24px_-14px_rgba(6,61,125,0.7)]">
+                <MessageCircle size={16} />
+              </span>
+              <div className="min-w-0">
+                <h3 className="text-balance text-[14px] font-semibold leading-tight text-slate-700">
+                  Completely headless — built for any messaging app
+                </h3>
+                <p className="mt-1.5 max-w-2xl text-pretty text-[12.5px] leading-relaxed text-slate-500">
+                  The orchestration engine has no dependency on this web
+                  interface. Channel adapters can embed the same agent in
+                  Viber, other messaging platforms, agency apps, or any
+                  API-capable client without rebuilding the government-service
+                  logic.
+                </p>
+                <div className="mt-3 flex flex-wrap gap-1.5">
+                  {["Web chat", "Viber", "Messaging APIs", "Agency apps"].map(
+                    (channel) => (
+                      <span
+                        key={channel}
+                        className="font-pixel rounded-full bg-white px-2.5 py-1 text-[8.5px] uppercase tracking-[0.12em] text-[#0a4f9e] shadow-[0_8px_20px_-14px_rgba(6,61,125,0.35)]"
+                      >
+                        {channel}
+                      </span>
+                    )
+                  )}
+                </div>
+              </div>
+            </div>
+          </Panel>
 
           <Panel className="mt-4">
             <div className="text-[13px] font-semibold text-slate-700">
@@ -942,9 +979,9 @@ export default function HowItWorksPage() {
         <div className="animate-fade-up mt-8 flex items-start gap-2.5 rounded-xl bg-[#0a4f9e]/[0.04] px-4 py-3.5 text-[12.5px] leading-relaxed text-slate-500">
           <Lock size={14} className="mt-0.5 shrink-0 text-[#0a4f9e]" />
           <span>
-            The same architecture scales from this demo to national deployment
-            — the cloud tier can be swapped or removed without touching the
-            conversation.
+            The same completely headless architecture scales from this demo to
+            national deployment — messaging channels and the cloud tier can be
+            swapped or removed without changing the agent&apos;s core logic.
           </span>
         </div>
       </div>
