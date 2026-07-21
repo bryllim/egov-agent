@@ -149,7 +149,7 @@ function overlayHTML(spec: OverlaySpec) {
   .v { position: absolute; transform: translateY(-50%); font-family: "Courier New", ui-monospace, monospace; font-weight: 700; white-space: nowrap; }
   </style></head><body>
   <div class="sheet">
-    <img src="${origin}${spec.image}" alt="" onload="setTimeout(function(){window.print()},250)" />
+    <img src="${origin}${spec.image}" alt="${spec.title}" />
     ${fields}
   </div>
   </body></html>`;
@@ -376,7 +376,7 @@ function generatedHTML(spec: GeneratedSpec) {
   .foot { margin-top: 9px; display: flex; justify-content: space-between; font-size: 9.5px; color: #666; font-family: ui-monospace, monospace; }
   .note { margin-top: 18px; font-size: 11px; color: #555; border-left: 3px solid #0a4f9e; padding: 7px 11px; background: #f7faff; }
   @media print { body { padding: 20px 28px; } }
-  </style></head><body onload="setTimeout(function(){window.print()},300)">
+  </style></head><body>
   <div class="head">
     <div class="seal">${spec.seal.initials}</div>
     <div>
@@ -406,7 +406,7 @@ export function buildFormHTML(kind: PrintKind, user: PrintUser): string {
   return "";
 }
 
-export function printForm(kind: PrintKind, user: PrintUser) {
+export function previewForm(kind: PrintKind, user: PrintUser) {
   const html = buildFormHTML(kind, user);
   if (!html) return;
   const w = window.open("", "_blank", "width=860,height=1100");

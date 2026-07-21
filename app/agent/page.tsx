@@ -11,6 +11,7 @@ import {
   Copy,
   CreditCard,
   Database,
+  Eye,
   FileText,
   Fingerprint,
   HelpCircle,
@@ -20,7 +21,6 @@ import {
   MapPin,
   Mic,
   Phone,
-  Printer,
   Search,
   ShieldCheck,
   X,
@@ -36,7 +36,7 @@ import {
   MarkerPopup,
   MarkerTooltip,
 } from "@/components/ui/map";
-import { printForm } from "./forms";
+import { previewForm } from "./forms";
 import { useAgentShell } from "./shell";
 import { DEMO_DATES as D } from "./dates";
 import {
@@ -69,7 +69,9 @@ export default function AgentPage() {
   const idRef = useRef(0);
   const convIdRef = useRef(0);
   const lastHandledConvRef = useRef<string | null | undefined>(undefined);
+  const chatViewportRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const scrollFrameRef = useRef<number | null>(null);
   const agentTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const recognitionRef = useRef<any>(null);
@@ -83,9 +85,33 @@ export default function AgentPage() {
 
   useEffect(() => clearAgentTimers, [clearAgentTimers]);
 
+  const scrollToBottom = useCallback((behavior: ScrollBehavior = "smooth") => {
+    if (scrollFrameRef.current !== null) {
+      cancelAnimationFrame(scrollFrameRef.current);
+    }
+
+    scrollFrameRef.current = requestAnimationFrame(() => {
+      scrollFrameRef.current = null;
+      const viewport = chatViewportRef.current;
+      if (viewport) {
+        viewport.scrollTo({ top: viewport.scrollHeight, behavior });
+        return;
+      }
+      bottomRef.current?.scrollIntoView({ behavior, block: "end" });
+    });
+  }, []);
+
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, agentProgress]);
+    return () => {
+      if (scrollFrameRef.current !== null) {
+        cancelAnimationFrame(scrollFrameRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    scrollToBottom("smooth");
+  }, [messages, agentProgress, streamingId, scrollToBottom]);
 
   /* Load the transcript when the sidebar switches conversations */
   useEffect(() => {
@@ -111,16 +137,10 @@ export default function AgentPage() {
     );
   }, [messages, activeConvId, setConversations]);
 
-  const scrollToBottom = useCallback(() => {
-    bottomRef.current?.scrollIntoView({ block: "end" });
-  }, []);
-
   const handleStreamDone = useCallback(() => {
     setStreamingId(null);
-    requestAnimationFrame(() =>
-      bottomRef.current?.scrollIntoView({ behavior: "smooth" })
-    );
-  }, []);
+    scrollToBottom("smooth");
+  }, [scrollToBottom]);
 
   const send = useCallback(
     (raw?: string) => {
@@ -268,7 +288,10 @@ export default function AgentPage() {
   return (
     <>
       {/* Messages */}
-      <div className="scrollbar-subtle relative flex-1 overflow-y-auto">
+      <div
+        ref={chatViewportRef}
+        className="scrollbar-subtle relative flex-1 overflow-y-auto scroll-smooth"
+      >
         {empty && (
           <div
             aria-hidden
@@ -732,7 +755,7 @@ function DemoGuideModal({
           <p className="max-w-2xl text-[13.5px] leading-relaxed text-slate-600">
             &ldquo;One PhilSys login, one conversation — and an AI agent
             transacts with 34 government agencies for you: it verifies, books,
-            pays, and hands you print-ready documents.&rdquo;
+            pays, and hands you preview-ready documents.&rdquo;
           </p>
 
           <div className="grid gap-x-8 sm:grid-cols-2">
@@ -759,9 +782,9 @@ function DemoGuideModal({
                 </GuideStep>
                 <GuideStep n={4}>
                   <strong>Wow moment:</strong> click{" "}
-                  <TypeThis>Print appointment pass</TypeThis> — a pre-filled,
-                  print-ready government document opens. Choose &ldquo;Save as
-                  PDF&rdquo; in the dialog. Pause and let it land.
+                  <TypeThis>Preview appointment pass</TypeThis> — a pre-filled
+                  government document opens in a new preview tab. Pause and let
+                  it land.
                 </GuideStep>
               </ol>
 
@@ -771,13 +794,13 @@ function DemoGuideModal({
                   Click <TypeThis>New conversation</TypeThis>, type{" "}
                   <TypeThis>Get an NBI clearance</TypeThis>, then click{" "}
                   <TypeThis>Pay with eGov Pay</TypeThis> — an official receipt
-                  appears. Print it too.
+                  appears. Preview it too.
                 </GuideStep>
                 <GuideStep n={6}>
                   New conversation →{" "}
                   <TypeThis>Check my SSS contributions</TypeThis> → point at the
                   live data card →{" "}
-                  <TypeThis>Print contribution statement</TypeThis>.
+                  <TypeThis>Preview contribution statement</TypeThis>.
                 </GuideStep>
                 <GuideStep n={7}>
                   New conversation → <TypeThis>PhilHealth member record</TypeThis>{" "}
@@ -837,32 +860,32 @@ function DemoGuideModal({
             <ScenarioCard
               phrase="Find the nearest DFA office"
               result="4-agency run (PhilSys → PSA → DFA → rank), then a live map of 5 passport sites with your location and the recommended pin."
-              chain={`Book Megamall · ${D.dfaShort}, 10:30 AM → booking confirmation → Print appointment pass.`}
+              chain={`Book Megamall · ${D.dfaShort}, 10:30 AM → booking confirmation → Preview appointment pass.`}
             />
             <ScenarioCard
               phrase="Renew my passport"
               result="DFA eligibility check + earliest-slot appointment card."
-              chain="Confirm this slot → booked with email/SMS/calendar. Print pre-filled application → the REAL DFA form, filled out."
+              chain="Confirm this slot → booked with email/SMS/calendar. Preview pre-filled application → the REAL DFA form, filled out."
             />
             <ScenarioCard
               phrase="Get an NBI clearance"
               result="Fully-online checklist: biometrics on file, purpose, fees."
-              chain="Pay with eGov Pay → official receipt card → Print official receipt or the application form."
+              chain="Pay with eGov Pay → official receipt card → Preview official receipt or the application form."
             />
             <ScenarioCard
               phrase="Check my SSS contributions"
               result="Live contribution table — monthly postings, ₱142,470 total, 87 months."
-              chain="Print contribution statement."
+              chain="Preview contribution statement."
             />
             <ScenarioCard
               phrase="PhilHealth member record"
               result="Member Data Record card: PIN, member type, dependents, premium status."
-              chain="Email certified MDR → issued + sent → Print MDR copy → the REAL PhilHealth PMRF, filled out."
+              chain="Email certified MDR → issued + sent → Preview MDR copy → the REAL PhilHealth PMRF, filled out."
             />
             <ScenarioCard
               phrase="Renew my driver's license"
               result="LTO renewal checklist — license on file, no violations, CDE exam required."
-              chain="Start CDE exam → enrolled + link emailed → Print renewal application → the REAL LTO Form 21, filled out."
+              chain="Start CDE exam → enrolled + link emailed → Preview renewal application → the REAL LTO Form 21, filled out."
             />
             <ScenarioCard
               phrase="Check if I have any LTO violations"
@@ -872,7 +895,7 @@ function DemoGuideModal({
             <ScenarioCard
               phrase="Apply for a Postal ID"
               result={`The memory flex: recalls you're in Mandaluyong, your SMS + email reminder preference, and your ${D.dfaShort} DFA appointment — then attaches all 3 requirements from your Vault as clickable file chips. Open one live: the real PSA certificate PDF renders.`}
-              chain={`Book capture · ${D.postalShort}, 9:00 AM → booked around your existing schedule → Print appointment pass listing the vault documents.`}
+              chain={`Book capture · ${D.postalShort}, 9:00 AM → booked around your existing schedule → Preview appointment pass listing the vault documents.`}
             />
             <ScenarioCard
               phrase="Do I need to file my taxes?"
@@ -919,8 +942,8 @@ function DemoGuideModal({
               window, don&apos;t wait in silence.
             </li>
             <li>
-              • Print opens the browser dialog — pick &ldquo;Save as PDF&rdquo;
-              if there&apos;s no printer on stage.
+              • Preview opens the document in a new tab, with no automatic
+              browser print dialog.
             </li>
             <li>
               • The map needs internet (basemap tiles) — everything else runs
@@ -1119,22 +1142,21 @@ function StreamedText({
 }) {
   const words = useMemo(() => tokenizeRich(text), [text]);
   const [count, setCount] = useState(1);
-  const doneRef = useRef(onDone);
-  const tickRef = useRef(onTick);
-  doneRef.current = onDone;
-  tickRef.current = onTick;
 
   useEffect(() => {
     if (count >= words.length) {
-      const timer = setTimeout(() => doneRef.current(), 200);
+      const timer = setTimeout(onDone, 200);
       return () => clearTimeout(timer);
     }
     const timer = setTimeout(() => {
       setCount((c) => c + 1);
-      tickRef.current();
     }, 28 + Math.random() * 48);
     return () => clearTimeout(timer);
-  }, [count, words.length]);
+  }, [count, onDone, words.length]);
+
+  useEffect(() => {
+    onTick();
+  }, [count, onTick]);
 
   return (
     <p className="text-[16.5px] leading-[1.65] text-slate-700">
@@ -1196,7 +1218,11 @@ function ActionButton({
   );
 }
 
-function PrintButton({
+function previewLabel(label: string) {
+  return label.replace(/^Print\b/i, "Preview");
+}
+
+function PreviewButton({
   label,
   onClick,
 }: {
@@ -1209,7 +1235,7 @@ function PrintButton({
       onClick={onClick}
       className="hairline flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-white py-2.5 text-[13.5px] font-medium text-[#0a4f9e] transition hover:bg-[#f6f9ff] active:scale-[0.99]"
     >
-      <Printer size={14} /> {label}
+      <Eye size={14} /> {previewLabel(label)}
     </button>
   );
 }
@@ -1239,14 +1265,14 @@ function ServiceCard({
 }) {
   const primary = () => {
     if (card.intent) onIntent(card.intent);
-    else if (card.print) printForm(card.print, user);
+    else if (card.print) previewForm(card.print, user);
   };
-  const secondaryPrint =
+  const secondaryPreview =
     card.intent && card.print ? (
       <div className="mt-2">
-        <PrintButton
-          label={card.printLabel ?? "Print pre-filled form"}
-          onClick={() => printForm(card.print!, user)}
+        <PreviewButton
+          label={card.printLabel ?? "Preview pre-filled form"}
+          onClick={() => previewForm(card.print!, user)}
         />
       </div>
     ) : null;
@@ -1301,7 +1327,7 @@ function ServiceCard({
             <ActionButton onClick={primary}>
               Confirm this slot <ChevronRight size={16} />
             </ActionButton>
-            {secondaryPrint}
+            {secondaryPreview}
           </div>
         </div>
       </CardShell>
@@ -1446,7 +1472,7 @@ function ServiceCard({
           <ActionButton onClick={primary}>
             <CreditCard size={16} /> {card.action}
           </ActionButton>
-          {secondaryPrint}
+          {secondaryPreview}
         </div>
       </CardShell>
     );
@@ -1550,7 +1576,7 @@ function ServiceCard({
           <ActionButton onClick={primary}>
             {card.action} <ChevronRight size={16} />
           </ActionButton>
-          {secondaryPrint}
+          {secondaryPreview}
         </div>
       </div>
     );
@@ -1591,9 +1617,9 @@ function ServiceCard({
         </div>
         {card.print && (
           <div className="border-t border-slate-100 px-5 py-3.5">
-            <PrintButton
-              label={card.printLabel ?? "Print statement"}
-              onClick={() => printForm(card.print!, user)}
+            <PreviewButton
+              label={card.printLabel ?? "Preview statement"}
+              onClick={() => previewForm(card.print!, user)}
             />
           </div>
         )}
@@ -1631,11 +1657,11 @@ function ServiceCard({
             </>
           ) : (
             <>
-              <Printer size={15} /> {card.action}
+              <Eye size={15} /> {previewLabel(card.action)}
             </>
           )}
         </ActionButton>
-        {secondaryPrint}
+        {secondaryPreview}
       </div>
     </CardShell>
   );

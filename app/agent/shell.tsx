@@ -298,7 +298,10 @@ function SidebarContent({
         )}
       </div>
 
-      <nav className="mt-8 space-y-2" aria-label="Agent navigation">
+      <nav
+        className="mt-8 flex min-h-0 flex-1 flex-col space-y-2"
+        aria-label="Agent navigation"
+      >
         <SidebarNavButton
           active={onChat && activeConvId === null}
           expanded={expanded}
@@ -343,7 +346,7 @@ function SidebarContent({
         />
       </nav>
 
-      <div className="mt-auto space-y-3">
+      <div className="mt-4 shrink-0 space-y-3">
         <button
           type="button"
           aria-label="View profile"
@@ -444,57 +447,59 @@ function RecentConversations({
   onSelect: (id: string) => void;
 }) {
   return (
-    <div className="space-y-2">
+    <div className="flex min-h-0 flex-1 flex-col">
       {expanded && (
-        <div className="font-pixel px-3 text-[9px] uppercase tracking-[0.18em] text-slate-400">
+        <div className="font-pixel shrink-0 px-3 text-[9px] uppercase tracking-[0.18em] text-slate-400">
           Previous conversations
         </div>
       )}
-      <div className="max-h-[132px] space-y-1.5 overflow-y-auto overscroll-contain pr-1 sm:max-h-[168px]">
-        {conversations.map((conversation) => {
-          const active = conversation.id === activeId;
-          return (
-            <button
-              key={conversation.id}
-              type="button"
-              title={conversation.title}
-              onClick={() => onSelect(conversation.id)}
-              aria-current={active ? "true" : undefined}
-              className={`group animate-step-in flex w-full cursor-pointer items-center justify-center rounded-xl text-left transition-all duration-200 ${
-                active
-                  ? "bg-[#0a4f9e]/10"
-                  : "hover:bg-[#f6f9ff] hover:text-[#0a4f9e]"
-              } ${
-                expanded
-                  ? "justify-start gap-3 px-3 py-2.5"
-                  : "h-10 px-0"
-              }`}
-            >
-              <span
-                className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl transition ${
+      <div className="relative mt-2 min-h-0 flex-1">
+        <div className="scrollbar-subtle h-full space-y-1.5 overflow-y-auto overscroll-contain pr-1 [mask-image:linear-gradient(to_bottom,transparent,black_18px,black_calc(100%-18px),transparent)]">
+          {conversations.map((conversation) => {
+            const active = conversation.id === activeId;
+            return (
+              <button
+                key={conversation.id}
+                type="button"
+                title={conversation.title}
+                onClick={() => onSelect(conversation.id)}
+                aria-current={active ? "true" : undefined}
+                className={`group animate-step-in flex w-full cursor-pointer items-center justify-center rounded-xl text-left transition-all duration-200 ${
                   active
-                    ? "bg-[#0a4f9e] text-white"
-                    : "bg-slate-100 text-slate-400 group-hover:bg-[#0a4f9e]/10 group-hover:text-[#0a4f9e]"
+                    ? "bg-[#0a4f9e]/10"
+                    : "hover:bg-[#f6f9ff] hover:text-[#0a4f9e]"
+                } ${
+                  expanded
+                    ? "justify-start gap-3 px-3 py-2.5"
+                    : "h-10 px-0"
                 }`}
               >
-                <MessageCircle size={15} />
-              </span>
-              {expanded && (
-                <span className="min-w-0">
-                  <span
-                    className={`block truncate text-[13px] transition ${
-                      active
-                        ? "font-semibold text-[#0a4f9e]"
-                        : "font-medium text-slate-600 group-hover:text-[#0a4f9e]"
-                    }`}
-                  >
-                    {conversation.title}
-                  </span>
+                <span
+                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl transition ${
+                    active
+                      ? "bg-[#0a4f9e] text-white"
+                      : "bg-slate-100 text-slate-400 group-hover:bg-[#0a4f9e]/10 group-hover:text-[#0a4f9e]"
+                  }`}
+                >
+                  <MessageCircle size={15} />
                 </span>
-              )}
-            </button>
-          );
-        })}
+                {expanded && (
+                  <span className="min-w-0">
+                    <span
+                      className={`block truncate text-[13px] transition ${
+                        active
+                          ? "font-semibold text-[#0a4f9e]"
+                          : "font-medium text-slate-600 group-hover:text-[#0a4f9e]"
+                      }`}
+                    >
+                      {conversation.title}
+                    </span>
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
       </div>
     </div>
   );

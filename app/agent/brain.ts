@@ -6,8 +6,8 @@ import { DEMO_DATES as D } from "./dates";
 
 /* ---------------------------------- types --------------------------------- */
 
-/* Buttons on a card can continue the conversation (intent) and/or print a
-   pre-filled government form (print). */
+/* Buttons on a card can continue the conversation (intent) and/or open a
+   pre-filled government document preview (print). */
 export type CardBase = {
   intent?: string;
   print?: PrintKind;
@@ -166,6 +166,15 @@ export const RECENT_CONVERSATIONS = [
   "Can you help me renew my passport?",
   "Check if I have any LTO violations",
   "Please show my PhilHealth member record.",
+  "Find the nearest DFA office with open slots",
+  "What documents do I need for an NBI clearance?",
+  "Check my SSS contribution history",
+  "Help me prepare a Postal ID application",
+  "Can you fill out my LTO renewal form?",
+  "Show my encrypted vault documents",
+  "What government services can I finish online?",
+  "Schedule a passport appointment for next week",
+  "Do I have enough PhilHealth contributions?",
 ];
 
 export const SEED_ELAPSED = ["11.2s", "9.8s", "12.6s", "10.4s", "13.1s"];
@@ -272,7 +281,7 @@ export function agentPlan(input: string, user: User): Plan {
           { label: "Location", value: "DFA CO SM Megamall, Mandaluyong" },
           { label: "Reminders", value: "Email · SMS · Calendar" },
         ],
-        action: "Print appointment pass",
+        action: "Preview appointment pass",
         print: "dfa-pass",
       },
     };
@@ -313,7 +322,7 @@ export function agentPlan(input: string, user: User): Plan {
           { label: "Paid via", value: "eGov Pay wallet" },
           { label: "Status", value: "Processing · ~10 mins" },
         ],
-        action: "Print official receipt",
+        action: "Preview official receipt",
         print: "nbi-receipt",
       },
     };
@@ -357,7 +366,7 @@ export function agentPlan(input: string, user: User): Plan {
           { label: "Signature", value: "PhilHealth e-seal + QR" },
           { label: "Status", value: "Delivered" },
         ],
-        action: "Print MDR copy",
+        action: "Preview MDR copy",
         print: "ph-mdr",
       },
     };
@@ -398,7 +407,7 @@ export function agentPlan(input: string, user: User): Plan {
           { label: "Access link", value: "Sent via email" },
           { label: "Status", value: "Ready to take" },
         ],
-        action: "Print renewal application",
+        action: "Preview renewal application",
         print: "lto-form",
       },
     };
@@ -444,7 +453,7 @@ export function agentPlan(input: string, user: User): Plan {
           { label: "Location", value: "Mandaluyong Central Post Office" },
           { label: "Documents", value: "3 attached from your vault" },
         ],
-        action: "Print appointment pass",
+        action: "Preview appointment pass",
         print: "postal-pass",
       },
     };
@@ -653,7 +662,7 @@ export function agentPlan(input: string, user: User): Plan {
         reference: D.dfaRef,
         intent: `Confirm the ${D.dfaShort} slot`,
         print: "dfa-form",
-        printLabel: "Print pre-filled application",
+        printLabel: "Preview pre-filled application",
       },
     };
   }
@@ -704,7 +713,7 @@ export function agentPlan(input: string, user: User): Plan {
         action: "Pay with eGov Pay",
         intent: "Pay the NBI clearance fee with eGov Pay",
         print: "nbi-form",
-        printLabel: "Print pre-filled application",
+        printLabel: "Preview pre-filled application",
       },
     };
   }
@@ -753,7 +762,7 @@ export function agentPlan(input: string, user: User): Plan {
         total: "₱142,470.00",
         meta: "87 contributions · fully posted",
         print: "sss-statement",
-        printLabel: "Print contribution statement",
+        printLabel: "Preview contribution statement",
       },
     };
   }
@@ -803,7 +812,7 @@ export function agentPlan(input: string, user: User): Plan {
         action: "Email certified MDR",
         intent: "Email my certified MDR",
         print: "ph-mdr",
-        printLabel: "Print MDR copy",
+        printLabel: "Preview MDR copy",
       },
     };
   }
@@ -946,7 +955,7 @@ export function agentPlan(input: string, user: User): Plan {
         action: "Start CDE exam",
         intent: "Start the CDE exam",
         print: "lto-form",
-        printLabel: "Print renewal application",
+        printLabel: "Preview renewal application",
       },
     };
   }
