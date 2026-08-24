@@ -49,6 +49,7 @@ import {
   X,
   type LucideIcon,
 } from "lucide-react";
+import { Squircle, SquircleButton } from "@/components/squircle";
 
 type GlossaryEntry = {
   title: string;
@@ -861,11 +862,12 @@ function Panel({
   className?: string;
 }) {
   return (
-    <div
+    <Squircle
+      cornerRadius={8}
       className={`architecture-card bg-white p-4 shadow-[0_10px_30px_-24px_rgba(6,61,125,0.32)] ${className}`}
     >
       {children}
-    </div>
+    </Squircle>
   );
 }
 
@@ -960,17 +962,24 @@ function DiagramCard({
       : "min-h-[68px] items-center gap-3 text-left"
   }`;
 
-  if (!item.term) return <div className={classes}>{content}</div>;
+  if (!item.term) {
+    return (
+      <Squircle cornerRadius={8} className={classes}>
+        {content}
+      </Squircle>
+    );
+  }
 
   return (
-    <button
+    <SquircleButton
+      cornerRadius={8}
       type="button"
       onClick={() => onOpen(item.term!)}
       aria-label={`Explain ${GLOSSARY[item.term].title}`}
       className={`${classes} cursor-pointer transition-[box-shadow,scale] duration-150 ease-out hover:shadow-[0_18px_34px_-25px_rgba(6,61,125,0.48)] active:scale-[0.96]`}
     >
       {content}
-    </button>
+    </SquircleButton>
   );
 }
 
@@ -1081,15 +1090,17 @@ function GlossaryModal({
                 </h2>
               </div>
             </div>
-            <button
-              ref={closeRef}
-              type="button"
-              onClick={onClose}
-              aria-label="Close explanation"
-              className="flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-xl bg-slate-50 text-slate-500 transition-[background-color,color,scale] duration-150 ease-out hover:bg-slate-100 hover:text-slate-800 active:scale-[0.96]"
-            >
-              <X size={18} />
-            </button>
+            <Squircle className="h-11 w-11 shrink-0" cornerRadius={12}>
+              <button
+                ref={closeRef}
+                type="button"
+                onClick={onClose}
+                aria-label="Close explanation"
+                className="flex h-full w-full cursor-pointer items-center justify-center rounded-xl bg-slate-50 text-slate-500 transition-[background-color,color,scale] duration-150 ease-out hover:bg-slate-100 hover:text-slate-800 active:scale-[0.96]"
+              >
+                <X size={18} />
+              </button>
+            </Squircle>
           </div>
 
           <p className="mt-5 text-[14px] leading-relaxed text-slate-600">
@@ -1097,22 +1108,22 @@ function GlossaryModal({
           </p>
 
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            <div className="architecture-card bg-[#f3f8ff] p-4">
+            <Squircle cornerRadius={8} className="architecture-card bg-[#f3f8ff] p-4">
               <div className="font-pixel text-[9px] font-bold uppercase tracking-[0.14em] text-[#0a4f9e]">
                 Simple example
               </div>
               <p className="mt-2 text-[12.5px] leading-relaxed text-slate-600">
                 {entry.example}
               </p>
-            </div>
-            <div className="architecture-card bg-emerald-50 p-4">
+            </Squircle>
+            <Squircle cornerRadius={8} className="architecture-card bg-emerald-50 p-4">
               <div className="font-pixel text-[9px] font-bold uppercase tracking-[0.14em] text-emerald-700">
                 Why it matters
               </div>
               <p className="mt-2 text-[12.5px] leading-relaxed text-slate-600">
                 {entry.why}
               </p>
-            </div>
+            </Squircle>
           </div>
         </div>
       </div>
@@ -1243,7 +1254,7 @@ export default function HowItWorksPage() {
             <div className="hidden text-[10.5px] text-slate-400 md:block">
               Use ← →, Page Up, Page Down, or Space
             </div>
-            <button
+            <SquircleButton
               type="button"
               onClick={() => setPresentationMode(false)}
               aria-label="Exit presentation mode"
@@ -1251,12 +1262,12 @@ export default function HowItWorksPage() {
             >
               <X size={16} />
               <span className="hidden sm:inline">Exit</span>
-            </button>
+            </SquircleButton>
           </div>
 
           <div className="fixed inset-x-0 bottom-0 z-40 bg-white/88 px-4 py-3 shadow-[0_-12px_32px_-26px_rgba(6,61,125,0.45)] backdrop-blur-xl sm:px-7">
             <div className="mx-auto flex max-w-6xl items-center gap-3">
-              <button
+              <SquircleButton
                 type="button"
                 onClick={() =>
                   setPresentationSlide((current) => Math.max(current - 1, 0))
@@ -1266,7 +1277,7 @@ export default function HowItWorksPage() {
                 className="flex h-11 min-w-11 cursor-pointer items-center justify-center rounded-xl bg-slate-100 text-slate-600 transition-[background-color,color,opacity,scale] duration-150 ease-out hover:bg-slate-200 active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-35"
               >
                 <ChevronLeft size={18} />
-              </button>
+              </SquircleButton>
               <div className="min-w-0 flex-1">
                 <div className="mb-1.5 flex items-center justify-between text-[10px] font-semibold text-slate-400">
                   <span>{PRESENTATION_SLIDES[presentationSlide].label}</span>
@@ -1284,7 +1295,7 @@ export default function HowItWorksPage() {
                   />
                 </div>
               </div>
-              <button
+              <SquircleButton
                 type="button"
                 onClick={() =>
                   setPresentationSlide((current) =>
@@ -1296,7 +1307,7 @@ export default function HowItWorksPage() {
                 className="bg-brand-gradient flex h-11 min-w-11 cursor-pointer items-center justify-center rounded-xl text-white shadow-[0_12px_26px_-18px_rgba(6,61,125,0.65)] transition-[filter,opacity,scale] duration-150 ease-out hover:brightness-105 active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-35"
               >
                 <ChevronRight size={18} />
-              </button>
+              </SquircleButton>
             </div>
           </div>
         </>
@@ -1350,14 +1361,14 @@ export default function HowItWorksPage() {
                 <ExplainButton term="generativeUi" onOpen={openTerm} />
                 <ExplainButton term="pii" onOpen={openTerm} />
               </div>
-              <button
+              <SquircleButton
                 type="button"
                 onClick={startPresentation}
                 className="bg-brand-gradient mt-5 inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl px-4 text-[12px] font-semibold text-white shadow-[0_14px_28px_-20px_rgba(6,61,125,0.72)] transition-[filter,scale] duration-150 ease-out hover:brightness-105 active:scale-[0.96]"
               >
                 <Play size={15} fill="currentColor" />
                 Open judge presentation
-              </button>
+              </SquircleButton>
             </header>
 
             <nav
@@ -1404,9 +1415,9 @@ export default function HowItWorksPage() {
             presentationMode={presentationMode}
             active={presentationSlide === 0}
           >
-            <div className="architecture-card bg-[#f8fafc] p-3 sm:p-5">
+            <Squircle cornerRadius={8} className="architecture-card bg-[#f8fafc] p-3 sm:p-5">
               <div className="grid items-center gap-3 lg:grid-cols-[1fr_auto_0.82fr_auto_1fr]">
-                <div className="architecture-boundary p-3">
+                <Squircle cornerRadius={12} className="architecture-boundary p-3">
                   <DiagramLabel>Client / frontend layer</DiagramLabel>
                   <div className="grid grid-cols-2 justify-items-center gap-2">
                     {CHANNELS.map((item) => (
@@ -1418,11 +1429,12 @@ export default function HowItWorksPage() {
                       />
                     ))}
                   </div>
-                </div>
+                </Squircle>
 
                 <ResponsiveFlowConnector label="HTTPS / JSON" />
 
-                <button
+                <SquircleButton
+                  cornerRadius={8}
                   type="button"
                   onClick={() => openTerm("headless")}
                   className="architecture-card architecture-node bg-brand-gradient relative mx-auto flex aspect-square w-full max-w-[230px] cursor-pointer flex-col items-center justify-center gap-3 px-5 text-center text-white transition-[filter,scale] duration-150 ease-out hover:brightness-105 active:scale-[0.96]"
@@ -1442,11 +1454,11 @@ export default function HowItWorksPage() {
                     size={14}
                     className="absolute right-3 top-3 shrink-0 text-white/65"
                   />
-                </button>
+                </SquircleButton>
 
                 <ResponsiveFlowConnector label="REST APIs / events" />
 
-                <div className="architecture-boundary p-3">
+                <Squircle cornerRadius={12} className="architecture-boundary p-3">
                   <DiagramLabel>Integration / API layer</DiagramLabel>
                   <div className="grid grid-cols-2 justify-items-center gap-2">
                     <DiagramCard
@@ -1481,12 +1493,12 @@ export default function HowItWorksPage() {
                       tile
                     />
                   </div>
-                </div>
+                </Squircle>
               </div>
 
               <FlowArrow label="Validated response payload" />
 
-              <div className="architecture-boundary p-3">
+              <Squircle cornerRadius={12} className="architecture-boundary p-3">
                 <DiagramLabel>Client-rendered frontend outputs</DiagramLabel>
                 <div className="grid grid-cols-2 justify-items-center gap-2 sm:grid-cols-4">
                   {[
@@ -1497,7 +1509,8 @@ export default function HowItWorksPage() {
                   ].map(([label, Icon]) => {
                     const ResultIcon = Icon as LucideIcon;
                     return (
-                      <div
+                      <Squircle
+                        cornerRadius={8}
                         key={label as string}
                         className="architecture-card architecture-node flex aspect-square w-full max-w-[112px] flex-col items-center justify-center gap-2 bg-white px-3 text-center text-[11.5px] font-semibold text-slate-700"
                       >
@@ -1505,12 +1518,12 @@ export default function HowItWorksPage() {
                           <ResultIcon size={15} />
                         </span>
                         {label as string}
-                      </div>
+                      </Squircle>
                     );
                   })}
                 </div>
-              </div>
-            </div>
+              </Squircle>
+            </Squircle>
             <p className="mt-4 text-[13px] leading-relaxed text-slate-500">
               The client or frontend can change without rewriting the backend
               policies, workflows, integration APIs, or agency systems of
@@ -1565,7 +1578,7 @@ export default function HowItWorksPage() {
               <FlowArrow />
 
               <DiagramLabel>2. Backend control plane</DiagramLabel>
-              <div className="architecture-card bg-[#0a4f9e] p-3 shadow-[0_24px_52px_-30px_rgba(6,61,125,0.72)] sm:p-5">
+              <Squircle cornerRadius={8} className="architecture-card bg-[#0a4f9e] p-3 shadow-[0_24px_52px_-30px_rgba(6,61,125,0.72)] sm:p-5">
                 <div className="grid grid-cols-2 justify-items-center gap-2 lg:grid-cols-4">
                   {[
                     {
@@ -1595,7 +1608,8 @@ export default function HowItWorksPage() {
                   ].map((item) => {
                     const Icon = item.icon;
                     return (
-                      <button
+                      <SquircleButton
+                        cornerRadius={8}
                         key={item.title}
                         type="button"
                         onClick={() => openTerm(item.term)}
@@ -1612,11 +1626,11 @@ export default function HowItWorksPage() {
                             {item.detail}
                           </span>
                         </span>
-                      </button>
+                      </SquircleButton>
                     );
                   })}
                 </div>
-              </div>
+              </Squircle>
 
               <FlowArrow />
 
@@ -1714,7 +1728,8 @@ export default function HowItWorksPage() {
                     tile
                   />
                 ))}
-                <button
+                <SquircleButton
+                  cornerRadius={8}
                   type="button"
                   onClick={() => openTerm("orchestrator")}
                   className="architecture-card bg-brand-gradient relative flex aspect-square w-full max-w-[156px] cursor-pointer flex-col items-center justify-center gap-2 px-3 text-center text-white shadow-[0_18px_40px_-24px_rgba(6,61,125,0.72)] transition-[filter,scale] duration-150 ease-out hover:brightness-105 active:scale-[0.96]"
@@ -1732,7 +1747,7 @@ export default function HowItWorksPage() {
                     size={12}
                     className="absolute right-2.5 top-2.5 text-white/65"
                   />
-                </button>
+                </SquircleButton>
               </div>
             </div>
             <div className="mt-4 flex flex-wrap gap-2">
@@ -1854,7 +1869,8 @@ export default function HowItWorksPage() {
                   ))}
                 </div>
                 <FlowArrow label="Purpose + consent filter" />
-                <button
+                <SquircleButton
+                  cornerRadius={8}
                   type="button"
                   onClick={() => openTerm("memory")}
                   className="architecture-card mx-auto flex aspect-[3/2] w-full max-w-[300px] cursor-pointer flex-col items-center justify-center gap-3 bg-violet-700 p-4 text-center text-white shadow-[0_18px_38px_-26px_rgba(109,40,217,0.68)] transition-[filter,scale] duration-150 ease-out hover:brightness-105 active:scale-[0.96]"
@@ -1869,15 +1885,16 @@ export default function HowItWorksPage() {
                       expiry
                     </span>
                   </span>
-                </button>
+                </SquircleButton>
                 <div className="mt-3 grid grid-cols-3 gap-2">
                   {["Correct", "Revoke", "Expire"].map((label) => (
-                    <div
+                    <Squircle
+                      cornerRadius={8}
                       key={label}
                       className="architecture-card bg-white px-2 py-3 text-center text-[10.5px] font-semibold text-slate-500 shadow-[0_10px_24px_-22px_rgba(6,61,125,0.3)]"
                     >
                       {label}
-                    </div>
+                    </Squircle>
                   ))}
                 </div>
               </div>
@@ -1893,7 +1910,8 @@ export default function HowItWorksPage() {
             active={presentationSlide === 5}
           >
             <div className="grid items-stretch gap-2 lg:grid-cols-[1fr_auto_1fr_auto_1.6fr]">
-              <button
+              <SquircleButton
+                cornerRadius={8}
                 type="button"
                 onClick={() => openTerm("orchestrator")}
                 className="architecture-card flex aspect-square w-full max-w-[156px] cursor-pointer flex-col items-center justify-center gap-2 justify-self-center bg-white p-3 text-center shadow-[0_12px_30px_-25px_rgba(6,61,125,0.35)] transition-[box-shadow,scale] duration-150 ease-out hover:shadow-[0_18px_34px_-25px_rgba(6,61,125,0.48)] active:scale-[0.96]"
@@ -1909,9 +1927,10 @@ export default function HowItWorksPage() {
                     Intent, dependencies and tool calls
                   </span>
                 </span>
-              </button>
+              </SquircleButton>
               <ResponsiveFlowConnector />
-              <button
+              <SquircleButton
+                cornerRadius={8}
                 type="button"
                 onClick={() => openTerm("schema")}
                 className="architecture-card flex aspect-square w-full max-w-[156px] cursor-pointer flex-col items-center justify-center gap-2 justify-self-center bg-[#0a4f9e] p-3 text-center text-white shadow-[0_18px_38px_-28px_rgba(6,61,125,0.7)] transition-[filter,scale] duration-150 ease-out hover:brightness-105 active:scale-[0.96]"
@@ -1925,13 +1944,14 @@ export default function HowItWorksPage() {
                     Rejects unknown components and fields
                   </span>
                 </span>
-              </button>
+              </SquircleButton>
               <ResponsiveFlowConnector />
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                 {UI_COMPONENTS.map((item) => {
                   const Icon = item.icon;
                   return (
-                    <div
+                    <Squircle
+                      cornerRadius={8}
                       key={item.title}
                       className="architecture-card flex aspect-square w-full flex-col items-center justify-center bg-white p-2 text-center shadow-[0_12px_28px_-24px_rgba(6,61,125,0.32)]"
                     >
@@ -1939,7 +1959,7 @@ export default function HowItWorksPage() {
                       <div className="mt-1.5 text-[10.5px] font-semibold text-slate-600">
                         {item.title}
                       </div>
-                    </div>
+                    </Squircle>
                   );
                 })}
               </div>
@@ -1957,7 +1977,7 @@ export default function HowItWorksPage() {
             presentationMode={presentationMode}
             active={presentationSlide === 6}
           >
-            <div className="architecture-card bg-[linear-gradient(145deg,#f8fbff,#eef6ff)] p-3 sm:p-5">
+            <Squircle cornerRadius={8} className="architecture-card bg-[linear-gradient(145deg,#f8fbff,#eef6ff)] p-3 sm:p-5">
               <div className="grid grid-cols-2 justify-items-center gap-3 sm:grid-cols-3 lg:grid-cols-6">
                 {GUARDRAILS.map((item, index) => (
                   <div
@@ -1983,17 +2003,18 @@ export default function HowItWorksPage() {
                 ].map(([label, Icon]) => {
                   const GuardIcon = Icon as LucideIcon;
                   return (
-                    <div
+                    <Squircle
+                      cornerRadius={8}
                       key={label as string}
                       className="architecture-card flex aspect-square w-full max-w-[124px] flex-col items-center justify-center gap-2 bg-emerald-600 px-3 text-center text-[10.5px] font-semibold text-white"
                     >
                       <GuardIcon size={14} />
                       {label as string}
-                    </div>
+                    </Squircle>
                   );
                 })}
               </div>
-            </div>
+            </Squircle>
 
             <div className="mt-4 grid gap-3 sm:grid-cols-3">
               <Panel>
@@ -2041,11 +2062,12 @@ export default function HowItWorksPage() {
                   key={state.label}
                   className="relative flex w-full justify-center"
                 >
-                  <div
+                  <Squircle
+                    cornerRadius={8}
                     className={`architecture-card flex aspect-square w-full max-w-[124px] items-center justify-center px-2 text-center text-[10.5px] font-semibold ${state.tone}`}
                   >
                     {state.label}
-                  </div>
+                  </Squircle>
                   {index < WORKFLOW_STATES.length - 1 && (
                     <span
                       aria-hidden
@@ -2078,7 +2100,7 @@ export default function HowItWorksPage() {
                     ["5", "Show receipt", "Only after confirmation"],
                   ].map(([n, title, detail], index) => (
                     <div key={n}>
-                      <div className="architecture-card flex min-h-14 items-center gap-3 bg-slate-50 px-3">
+                      <Squircle cornerRadius={8} className="architecture-card flex min-h-14 items-center gap-3 bg-slate-50 px-3">
                         <span className="font-pixel flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white text-[9px] font-bold text-[#0a4f9e] shadow-[0_8px_18px_-16px_rgba(6,61,125,0.3)]">
                           {n}
                         </span>
@@ -2090,7 +2112,7 @@ export default function HowItWorksPage() {
                             {detail}
                           </span>
                         </span>
-                      </div>
+                      </Squircle>
                       {index < 4 && (
                         <div className="architecture-connector-v ml-6" />
                       )}
@@ -2167,7 +2189,8 @@ export default function HowItWorksPage() {
                   {STACK_LAYERS.map((layer, index) => {
                     const Icon = layer.icon;
                     return (
-                      <button
+                      <SquircleButton
+                        cornerRadius={8}
                         key={layer.title}
                         type="button"
                         onClick={() => openTerm(layer.term)}
@@ -2191,7 +2214,7 @@ export default function HowItWorksPage() {
                           size={12}
                           className="absolute right-2.5 top-2.5 shrink-0 text-[#0a4f9e]/55"
                         />
-                      </button>
+                      </SquircleButton>
                     );
                   })}
                 </div>
@@ -2199,8 +2222,9 @@ export default function HowItWorksPage() {
 
               <div>
                 <DiagramLabel>Choose the approved cloud</DiagramLabel>
-                <div className="architecture-card bg-[linear-gradient(145deg,#0a4f9e,#063d7d)] p-4 text-white shadow-[0_22px_46px_-30px_rgba(6,61,125,0.72)]">
-                  <button
+                <Squircle cornerRadius={8} className="architecture-card bg-[linear-gradient(145deg,#0a4f9e,#063d7d)] p-4 text-white shadow-[0_22px_46px_-30px_rgba(6,61,125,0.72)]">
+                  <SquircleButton
+                    cornerRadius={8}
                     type="button"
                     onClick={() => openTerm("cloudAgnostic")}
                     className="architecture-card flex min-h-[76px] w-full cursor-pointer items-center gap-3 bg-white/10 p-3 text-left transition-[background-color,scale] duration-150 ease-out hover:bg-white/15 active:scale-[0.96]"
@@ -2217,7 +2241,7 @@ export default function HowItWorksPage() {
                       </span>
                     </span>
                     <Info size={12} className="ml-auto text-blue-100" />
-                  </button>
+                  </SquircleButton>
 
                   <FlowArrow label="Provider adapters" light />
 
@@ -2244,7 +2268,8 @@ export default function HowItWorksPage() {
                         alt: "Department of Information and Communications Technology",
                       },
                     ].map((cloud) => (
-                      <div
+                      <Squircle
+                        cornerRadius={8}
                         key={cloud.name}
                         className="architecture-card flex aspect-square w-full max-w-[132px] flex-col items-center justify-center bg-white px-2 text-center"
                       >
@@ -2261,10 +2286,10 @@ export default function HowItWorksPage() {
                         <div className="mt-0.5 text-[8.5px] leading-tight text-slate-400">
                           Compute · data · keys
                         </div>
-                      </div>
+                      </Squircle>
                     ))}
                   </div>
-                </div>
+                </Squircle>
 
                 <Panel className="mt-3 bg-amber-50">
                   <div className="flex items-start gap-3">
@@ -2303,9 +2328,10 @@ export default function HowItWorksPage() {
             presentationMode={presentationMode}
             active={presentationSlide === 9}
           >
-            <div className="architecture-boundary p-3 sm:p-4">
+            <Squircle cornerRadius={12} className="architecture-boundary p-3 sm:p-4">
               <DiagramLabel>Cost-aware request routing</DiagramLabel>
-              <button
+              <SquircleButton
+                cornerRadius={8}
                 type="button"
                 onClick={() => openTerm("costRouting")}
                 className="architecture-card architecture-node bg-brand-gradient relative mx-auto flex min-h-16 w-full max-w-sm cursor-pointer items-center gap-3 px-4 text-left text-white transition-[filter,scale] duration-150 ease-out hover:brightness-105 active:scale-[0.96]"
@@ -2325,7 +2351,7 @@ export default function HowItWorksPage() {
                   size={12}
                   className="ml-auto shrink-0 text-white/65"
                 />
-              </button>
+              </SquircleButton>
 
               <FlowArrow label="Escalate only when needed" />
 
@@ -2340,9 +2366,9 @@ export default function HowItWorksPage() {
                   />
                 ))}
               </div>
-            </div>
+            </Squircle>
 
-            <div className="architecture-boundary mt-3 p-3 sm:p-4">
+            <Squircle cornerRadius={12} className="architecture-boundary mt-3 p-3 sm:p-4">
               <DiagramLabel>Cost reduction controls</DiagramLabel>
               <div className="grid grid-cols-2 justify-items-center gap-3 sm:grid-cols-3 lg:grid-cols-6">
                 {COST_CONTROLS.map((item) => (
@@ -2355,7 +2381,7 @@ export default function HowItWorksPage() {
                   />
                 ))}
               </div>
-            </div>
+            </Squircle>
 
             <div className="mt-3 grid gap-3 lg:grid-cols-[1.35fr_1fr]">
               <Panel>
@@ -2372,7 +2398,8 @@ export default function HowItWorksPage() {
                 </div>
                 <div className="mt-3 grid grid-cols-3 gap-2">
                   {COST_SCENARIOS.map((scenario) => (
-                    <div
+                    <Squircle
+                      cornerRadius={8}
                       key={scenario.volume}
                       className="architecture-card bg-slate-50 px-2 py-2.5 text-center"
                     >
@@ -2385,7 +2412,7 @@ export default function HowItWorksPage() {
                       <div className="mt-0.5 text-[9.5px] text-slate-400">
                         {scenario.unit}
                       </div>
-                    </div>
+                    </Squircle>
                   ))}
                 </div>
               </Panel>
@@ -2448,7 +2475,7 @@ export default function HowItWorksPage() {
           </Section>
 
           {!presentationMode && (
-            <div className="architecture-card mt-6 bg-[#0a4f9e] p-5 text-white shadow-[0_24px_52px_-30px_rgba(6,61,125,0.72)] sm:p-6">
+            <Squircle cornerRadius={8} className="architecture-card mt-6 bg-[#0a4f9e] p-5 text-white shadow-[0_24px_52px_-30px_rgba(6,61,125,0.72)] sm:p-6">
               <div className="font-pixel text-[9px] font-bold uppercase tracking-[0.16em] text-blue-200">
                 Architecture summary
               </div>
@@ -2462,16 +2489,16 @@ export default function HowItWorksPage() {
                 let the eGov team integrate the design into its approved
                 technology and cloud environment.
               </p>
-            </div>
+            </Squircle>
           )}
 
           {presentationMode && presentationSlide === 10 && (
-            <div className="architecture-card mt-3 bg-[#0a4f9e] px-4 py-3 text-[12px] font-medium leading-relaxed text-white shadow-[0_18px_38px_-28px_rgba(6,61,125,0.7)]">
+            <Squircle cornerRadius={8} className="architecture-card mt-3 bg-[#0a4f9e] px-4 py-3 text-[12px] font-medium leading-relaxed text-white shadow-[0_18px_38px_-28px_rgba(6,61,125,0.7)]">
               eGov Agent is a compatible backend orchestration layer. Frontend
               clients use authenticated APIs, while identity, payments, AI,
               and official records remain with their trusted eGov and agency
               systems.
-            </div>
+            </Squircle>
           )}
 
           {!presentationMode && (

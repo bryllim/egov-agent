@@ -31,6 +31,7 @@ import {
 } from "lucide-react";
 import { AgentMark, AgentWordmark } from "@/components/brand";
 import { PrivacyNoticeModal } from "@/components/privacy-notice-modal";
+import { SquircleButton } from "@/components/squircle";
 import {
   DEMO_PROFILE,
   getServerSessionUserSnapshot,
@@ -181,7 +182,7 @@ export function AgentShell({ children }: { children: React.ReactNode }) {
           className="absolute inset-x-0 top-0 z-30 flex h-16 items-center justify-between bg-white/92 px-4 shadow-[0_1px_0_oklch(0_0_0/0.05),0_10px_24px_-22px_rgba(6,61,125,0.45)] backdrop-blur-xl sm:hidden"
         >
           <AgentWordmark size={30} />
-          <button
+          <SquircleButton
             type="button"
             onClick={() => setMobileSidebarOpen(true)}
             aria-label="Open menu"
@@ -190,7 +191,7 @@ export function AgentShell({ children }: { children: React.ReactNode }) {
             className="flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-xl bg-[#f3f7fc] text-slate-600 transition-[background-color,color,transform] duration-150 hover:bg-[#eaf2fc] hover:text-[#0a4f9e] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0a4f9e]/30 active:scale-[0.96]"
           >
             <Menu size={20} strokeWidth={2.2} />
-          </button>
+          </SquircleButton>
         </header>
 
         <button
@@ -309,7 +310,8 @@ function SidebarContent({
           {expanded ? <AgentWordmark size={32} /> : <AgentMark size={34} />}
         </div>
         {isDesktop ? (
-          <button
+          <SquircleButton
+            cornerRadius={16}
             type="button"
             onClick={onToggleCollapsed}
             title={collapseLabel}
@@ -322,16 +324,17 @@ function SidebarContent({
             ) : (
               <PanelLeftOpen size={17} />
             )}
-          </button>
+          </SquircleButton>
         ) : (
-          <button
+          <SquircleButton
+            cornerRadius={16}
             type="button"
             onClick={onCloseMobile}
             aria-label="Close menu"
             className="flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-2xl border border-slate-200/80 bg-white text-slate-500 shadow-[0_8px_20px_rgba(11,22,36,0.06)] transition hover:border-[#0a4f9e]/30 hover:text-[#0a4f9e]"
           >
             <X size={18} />
-          </button>
+          </SquircleButton>
         )}
       </div>
 
@@ -384,7 +387,8 @@ function SidebarContent({
       </nav>
 
       <div className="mt-4 shrink-0 space-y-3">
-        <button
+        <SquircleButton
+          cornerRadius={16}
           type="button"
           data-audit="Opened profile"
           aria-label="View profile"
@@ -420,7 +424,7 @@ function SidebarContent({
               />
             </>
           )}
-        </button>
+        </SquircleButton>
 
         <div className="space-y-2">
           <SidebarControlButton
@@ -452,7 +456,8 @@ function SidebarNavButton({
   onClick?: () => void;
 }) {
   return (
-    <button
+    <SquircleButton
+      cornerRadius={active ? 12 : 16}
       type="button"
       data-audit={`Opened ${label}`}
       title={label}
@@ -470,7 +475,7 @@ function SidebarNavButton({
         {icon}
       </span>
       {expanded && <span className="truncate">{label}</span>}
-    </button>
+    </SquircleButton>
   );
 }
 
@@ -497,7 +502,7 @@ function RecentConversations({
           {conversations.map((conversation) => {
             const active = conversation.id === activeId;
             return (
-              <button
+              <SquircleButton
                 key={conversation.id}
                 type="button"
                 title={conversation.title}
@@ -535,7 +540,7 @@ function RecentConversations({
                     </span>
                   </span>
                 )}
-              </button>
+              </SquircleButton>
             );
           })}
         </div>
@@ -566,7 +571,8 @@ function SidebarControlButton({
       : "text-slate-400 hover:bg-[#f6f9ff] hover:text-[#0a4f9e]";
 
   return (
-    <button
+    <SquircleButton
+      cornerRadius={16}
       type="button"
       data-audit={danger ? "Signed out" : label}
       onClick={onClick}
@@ -579,6 +585,6 @@ function SidebarControlButton({
         {icon}
       </span>
       {expanded && <span className="truncate">{label}</span>}
-    </button>
+    </SquircleButton>
   );
 }

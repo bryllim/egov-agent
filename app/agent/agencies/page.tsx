@@ -6,6 +6,7 @@ import { ArrowLeft, Check, Lock, Plug } from "lucide-react";
 import { AgencySeal, sealFor } from "@/components/agency";
 import { recordAuditEvent } from "@/lib/audit-log";
 import { useSensoryUI } from "@/lib/provider";
+import { Squircle } from "@/components/squircle";
 
 type Agency = {
   label: string; // used for logo lookup
@@ -240,14 +241,14 @@ export default function AgenciesPage() {
           ))}
         </div>
 
-        <div className="animate-fade-up delay-300 mt-6 flex items-start gap-2.5 rounded-xl bg-[#0a4f9e]/[0.04] px-4 py-3.5 text-[12.5px] leading-relaxed text-slate-500">
+        <Squircle className="animate-fade-up delay-300 mt-6 flex items-start gap-2.5 rounded-xl bg-[#0a4f9e]/[0.04] px-4 py-3.5 text-[12.5px] leading-relaxed text-slate-500">
           <Lock size={14} className="mt-0.5 shrink-0 text-[#0a4f9e]" />
           <span>
             Connections use PhilSys eVerify and each agency&apos;s official API.
             You can disconnect an agency anytime — your records stay with the
             agency, never with the agent.
           </span>
-        </div>
+        </Squircle>
       </div>
     </div>
   );

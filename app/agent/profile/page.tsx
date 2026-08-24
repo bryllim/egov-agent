@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { AgencySeal } from "@/components/agency";
 import { useSoundEffects } from "@/components/sound-effects";
+import { Squircle } from "@/components/squircle";
 import { useAgentShell } from "../shell";
 import { DEMO_PROFILE } from "../brain";
 
@@ -93,14 +94,16 @@ function SectionCard({
   delay?: string;
 }) {
   return (
-    <section
-      className={`animate-fade-up rounded-xl bg-white p-6 shadow-[0_18px_44px_-30px_rgba(6,61,125,0.3)] ${delay ?? ""} ${className}`}
-    >
-      <h2 className="font-pixel text-[10px] uppercase tracking-[0.18em] text-[#0a4f9e]">
-        {title}
-      </h2>
-      <div className="mt-4">{children}</div>
-    </section>
+    <Squircle asChild>
+      <section
+        className={`animate-fade-up rounded-xl bg-white p-6 shadow-[0_18px_44px_-30px_rgba(6,61,125,0.3)] ${delay ?? ""} ${className}`}
+      >
+        <h2 className="font-pixel text-[10px] uppercase tracking-[0.18em] text-[#0a4f9e]">
+          {title}
+        </h2>
+        <div className="mt-4">{children}</div>
+      </section>
+    </Squircle>
   );
 }
 
@@ -157,7 +160,8 @@ export default function ProfilePage() {
         </div>
 
         {/* Identity header */}
-        <section className="animate-fade-up delay-100 mt-6 flex flex-col items-center gap-5 rounded-xl bg-white p-7 shadow-[0_18px_44px_-30px_rgba(6,61,125,0.3)] sm:flex-row sm:items-center">
+        <Squircle asChild>
+          <section className="animate-fade-up delay-100 mt-6 flex flex-col items-center gap-5 rounded-xl bg-white p-7 shadow-[0_18px_44px_-30px_rgba(6,61,125,0.3)] sm:flex-row sm:items-center">
           <Image
             src={user.photoSrc ?? DEMO_PROFILE.photoSrc}
             alt={user.name}
@@ -186,7 +190,8 @@ export default function ProfilePage() {
               </span>
             </div>
           </div>
-        </section>
+          </section>
+        </Squircle>
 
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
           <SectionCard title="Personal information" delay="delay-200">
@@ -231,7 +236,7 @@ export default function ProfilePage() {
           </div>
         </section>
 
-        <div className="animate-fade-up delay-400 mt-5 flex items-start gap-2.5 rounded-xl bg-[#0a4f9e]/[0.04] px-4 py-3.5 text-[12.5px] leading-relaxed text-slate-500">
+        <Squircle className="animate-fade-up delay-400 mt-5 flex items-start gap-2.5 rounded-xl bg-[#0a4f9e]/[0.04] px-4 py-3.5 text-[12.5px] leading-relaxed text-slate-500">
           <Lock size={14} className="mt-0.5 shrink-0 text-[#0a4f9e]" />
           <span>
             This information is read-only — it&apos;s synced from your PhilSys
@@ -239,7 +244,7 @@ export default function ProfilePage() {
             update your personal details, visit any PhilSys registration center
             or ask the eGov Agent where to go.
           </span>
-        </div>
+        </Squircle>
 
         <section className="animate-fade-up delay-400 mt-8 border-t border-slate-200/80 px-1 pb-2 pt-6">
           <div className="flex items-center gap-4">

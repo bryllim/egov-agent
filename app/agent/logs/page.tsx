@@ -20,6 +20,7 @@ import {
   type AuditActor,
   type AuditEvent,
 } from "@/lib/audit-log";
+import { Squircle, SquircleButton } from "@/components/squircle";
 
 type ActorFilter = "all" | AuditActor;
 
@@ -162,10 +163,11 @@ export default function LogsPage() {
         </header>
 
         <section className="animate-fade-up delay-200 mt-5">
-          <div className="flex flex-col gap-3 rounded-xl bg-white p-3 shadow-[0_16px_36px_-28px_rgba(6,61,125,0.35)] sm:flex-row sm:items-center sm:justify-between">
+          <Squircle className="flex flex-col gap-3 rounded-xl bg-white p-3 shadow-[0_16px_36px_-28px_rgba(6,61,125,0.35)] sm:flex-row sm:items-center sm:justify-between">
             <div className="flex flex-wrap gap-1">
               {ACTOR_FILTERS.map((filter) => (
-                <button
+                <SquircleButton
+                  cornerRadius={8}
                   key={filter.value}
                   type="button"
                   data-audit="none"
@@ -178,7 +180,7 @@ export default function LogsPage() {
                   }`}
                 >
                   {filter.label}
-                </button>
+                </SquircleButton>
               ))}
             </div>
             <label className="flex min-h-10 min-w-0 items-center gap-2 rounded-lg bg-[#f5f8fc] px-3 sm:w-64">
@@ -192,13 +194,14 @@ export default function LogsPage() {
                 className="min-w-0 flex-1 bg-transparent text-base text-slate-700 outline-none placeholder:text-slate-400 sm:text-[13px]"
               />
             </label>
-          </div>
+          </Squircle>
         </section>
 
-        <section
-          aria-label="Activity records"
-          className="animate-fade-up delay-300 mt-4 overflow-hidden rounded-xl bg-white px-4 py-2 shadow-[0_18px_48px_-34px_rgba(6,61,125,0.42)] sm:px-5"
-        >
+        <Squircle asChild>
+          <section
+            aria-label="Activity records"
+            className="animate-fade-up delay-300 mt-4 overflow-hidden rounded-xl bg-white px-4 py-2 shadow-[0_18px_48px_-34px_rgba(6,61,125,0.42)] sm:px-5"
+          >
           {filteredEvents.length > 0 ? (
             <div>
               {filteredEvents.map((event, index) => {
@@ -248,7 +251,8 @@ export default function LogsPage() {
               </p>
             </div>
           )}
-        </section>
+          </section>
+        </Squircle>
 
         <p className="mt-4 text-center text-[11px] leading-5 text-slate-400">
           The latest 250 activity records are retained on this device.

@@ -40,6 +40,7 @@ import {
   useState,
 } from "react";
 import { AgentMark } from "@/components/brand";
+import { Squircle, SquircleButton } from "@/components/squircle";
 import { DEMO_DATES as D } from "@/app/agent/dates";
 import { previewForm } from "@/app/agent/forms";
 
@@ -141,7 +142,7 @@ function NavButton({
   onClick?: () => void;
 }) {
   return (
-    <button
+    <SquircleButton
       type="button"
       aria-label={label}
       title={label}
@@ -156,7 +157,7 @@ function NavButton({
       {active && (
         <span className="absolute -left-[14px] h-6 w-1 rounded-e-full bg-white" />
       )}
-    </button>
+    </SquircleButton>
   );
 }
 
@@ -193,7 +194,7 @@ function IconButton({
 
 function PassportCard({ onStart }: { onStart: () => void }) {
   return (
-    <div className="w-full overflow-hidden rounded-[18px] bg-[oklch(0.23_0.012_294)] shadow-[0_8px_30px_oklch(0_0_0/0.34),0_1px_2px_oklch(0_0_0/0.28)] outline outline-1 outline-white/10">
+    <Squircle cornerRadius={18} className="w-full overflow-hidden rounded-[18px] bg-[oklch(0.23_0.012_294)] shadow-[0_8px_30px_oklch(0_0_0/0.34),0_1px_2px_oklch(0_0_0/0.28)] outline outline-1 outline-white/10">
       <div className="relative overflow-hidden bg-[linear-gradient(135deg,oklch(0.47_0.17_255),oklch(0.34_0.13_255))] px-5 pb-5 pt-4 text-white">
         <div className="relative flex items-center justify-between">
           <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-white/65">
@@ -232,13 +233,13 @@ function PassportCard({ onStart }: { onStart: () => void }) {
         Start passport renewal
         <ChevronRight size={17} />
       </button>
-    </div>
+    </Squircle>
   );
 }
 
 function ApplicationCard() {
   return (
-    <div className="w-full overflow-hidden rounded-[18px] bg-[oklch(0.23_0.012_294)] p-4 shadow-[0_8px_30px_oklch(0_0_0/0.34),0_1px_2px_oklch(0_0_0/0.28)] outline outline-1 outline-white/10">
+    <Squircle cornerRadius={18} className="w-full overflow-hidden rounded-[18px] bg-[oklch(0.23_0.012_294)] p-4 shadow-[0_8px_30px_oklch(0_0_0/0.34),0_1px_2px_oklch(0_0_0/0.28)] outline outline-1 outline-white/10">
       <div className="flex items-start gap-3">
         <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[oklch(0.31_0.06_294)] text-[oklch(0.77_0.16_294)]">
           <FileText size={20} />
@@ -262,20 +263,20 @@ function ApplicationCard() {
         <span>Details pre-filled</span>
         <span className="tabular-nums">2 of 3 steps</span>
       </div>
-      <button
+      <SquircleButton
         type="button"
         className="mt-4 h-11 w-full cursor-pointer rounded-xl bg-[oklch(0.56_0.2_294)] text-[13px] font-semibold text-white shadow-[0_7px_18px_oklch(0.42_0.18_294/0.24)] transition-[background-color,transform] duration-200 hover:bg-[oklch(0.51_0.2_294)] active:scale-[0.96]"
       >
         Review application
-      </button>
-    </div>
+      </SquircleButton>
+    </Squircle>
   );
 }
 
 function SssContributionCard({ onPreview }: { onPreview: () => void }) {
   const rows = [D.sssMonth1, D.sssMonth2, D.sssMonth3];
   return (
-    <div className="w-full overflow-hidden rounded-[18px] bg-[oklch(0.23_0.012_294)] shadow-[0_8px_30px_oklch(0_0_0/0.34),0_1px_2px_oklch(0_0_0/0.28)] outline outline-1 outline-white/10">
+    <Squircle cornerRadius={18} className="w-full overflow-hidden rounded-[18px] bg-[oklch(0.23_0.012_294)] shadow-[0_8px_30px_oklch(0_0_0/0.34),0_1px_2px_oklch(0_0_0/0.28)] outline outline-1 outline-white/10">
       <div className="flex items-center gap-3 bg-[linear-gradient(135deg,oklch(0.34_0.12_255),oklch(0.25_0.09_255))] px-5 py-4 text-white">
         <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white/10 outline outline-1 outline-white/12">
           <Database size={20} />
@@ -321,13 +322,13 @@ function SssContributionCard({ onPreview }: { onPreview: () => void }) {
         </span>
         <ChevronRight size={16} />
       </button>
-    </div>
+    </Squircle>
   );
 }
 
 function HelpCard({ onSelect }: { onSelect: (text: string) => void }) {
   return (
-    <div className="w-full overflow-hidden rounded-[18px] bg-[oklch(0.23_0.012_294)] shadow-[0_8px_30px_oklch(0_0_0/0.34),0_1px_2px_oklch(0_0_0/0.28)] outline outline-1 outline-white/10">
+    <Squircle cornerRadius={18} className="w-full overflow-hidden rounded-[18px] bg-[oklch(0.23_0.012_294)] shadow-[0_8px_30px_oklch(0_0_0/0.34),0_1px_2px_oklch(0_0_0/0.28)] outline outline-1 outline-white/10">
       <div className="px-5 pb-3 pt-4">
         <div className="flex items-center gap-2 text-[14px] font-semibold text-[oklch(0.94_0.008_294)]">
           <Menu size={17} className="text-[oklch(0.75_0.17_294)]" />
@@ -345,7 +346,7 @@ function HelpCard({ onSelect }: { onSelect: (text: string) => void }) {
           <ChevronRight size={15} />
         </button>
       ))}
-    </div>
+    </Squircle>
   );
 }
 
@@ -649,7 +650,8 @@ export function ViberDemo() {
         </div>
 
         <div className="px-2">
-          <button
+          <SquircleButton
+            cornerRadius={14}
             type="button"
             className="flex w-full cursor-pointer items-center gap-3 rounded-[14px] bg-[oklch(0.27_0.04_294)] px-3 py-3 text-start transition-[background-color,transform] duration-200 hover:bg-[oklch(0.3_0.055_294)] active:scale-[0.96]"
           >
@@ -669,7 +671,7 @@ export function ViberDemo() {
             <div className="self-start pt-0.5 text-[10px] tabular-nums text-[oklch(0.62_0.012_294)]">
               10:33 AM
             </div>
-          </button>
+          </SquircleButton>
         </div>
 
         <div className="mt-auto flex items-center gap-3 px-6 py-5 text-[11px] text-[oklch(0.58_0.012_294)]">
@@ -810,7 +812,7 @@ export function ViberDemo() {
             Your secure AI guide to Philippine government services, powered by eGovPH.
           </p>
         </div>
-        <div className="mx-4 rounded-[16px] bg-[oklch(0.22_0.018_294)] p-4 shadow-[inset_0_0_0_1px_oklch(1_0_0/0.07)]">
+        <Squircle cornerRadius={16} className="mx-4 rounded-[16px] bg-[oklch(0.22_0.018_294)] p-4 shadow-[inset_0_0_0_1px_oklch(1_0_0/0.07)]">
           <div className="flex items-center gap-3">
             <span className="grid h-9 w-9 place-items-center rounded-xl bg-[oklch(0.32_0.06_155)] text-[oklch(0.78_0.13_155)]">
               <ShieldCheck size={19} />
@@ -820,14 +822,14 @@ export function ViberDemo() {
               <p className="mt-0.5 text-[10px] text-[oklch(0.64_0.012_294)]">PhilSys · eVerify · eGov Pay</p>
             </div>
           </div>
-        </div>
+        </Squircle>
         <div className="mt-4 px-3">
           {[
             { icon: Bell, label: "Mute notifications" },
             { icon: Archive, label: "Chat history" },
             { icon: CircleHelp, label: "Help and support" },
           ].map(({ icon: ItemIcon, label }) => (
-            <button
+            <SquircleButton
               type="button"
               key={label}
               onClick={() => showToast(label)}
@@ -835,7 +837,7 @@ export function ViberDemo() {
             >
               <ItemIcon size={18} className="text-[oklch(0.68_0.08_294)]" />
               {label}
-            </button>
+            </SquircleButton>
           ))}
         </div>
       </aside>
@@ -884,7 +886,7 @@ export function ViberDemo() {
             { icon: WalletCards, label: "Viber Pay" },
             { icon: Settings, label: "Settings" },
           ].map(({ icon: ItemIcon, label }, index) => (
-            <button
+            <SquircleButton
               type="button"
               key={label}
               onClick={() => {
@@ -899,7 +901,7 @@ export function ViberDemo() {
             >
               <ItemIcon size={20} />
               {label}
-            </button>
+            </SquircleButton>
           ))}
         </div>
       </aside>

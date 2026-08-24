@@ -32,6 +32,7 @@ import {
 import { AgentMark } from "@/components/brand";
 import { AgencySeal, sealFor } from "@/components/agency";
 import { VaultFileStamp } from "@/components/vault-file-stamp";
+import { Squircle, SquircleButton } from "@/components/squircle";
 import { recordAuditEvent } from "@/lib/audit-log";
 import { useSensoryUI } from "@/lib/provider";
 import {
@@ -116,7 +117,7 @@ function QuickActions({
     <div className="animate-fade-in pt-1" aria-label="Quick actions">
       <div className="flex flex-wrap gap-2">
         {actions.map((action, index) => (
-          <button
+          <SquircleButton
             key={action}
             type="button"
             disabled={disabled}
@@ -126,7 +127,7 @@ function QuickActions({
           >
             <span>{action}</span>
             <ChevronRight size={14} className="shrink-0" />
-          </button>
+          </SquircleButton>
         ))}
       </div>
     </div>
@@ -691,113 +692,121 @@ export default function AgentPage() {
 
       {/* Composer */}
       <div className="bg-[#f7faff]/90 px-6 pb-6 pt-2 backdrop-blur">
-        <div className="hairline mx-auto flex min-h-[116px] w-full max-w-2xl flex-col rounded-[28px] bg-white p-3">
-          {pendingUploads.length > 0 && (
-            <div
-              className="scrollbar-subtle mb-2 flex max-w-full gap-2 overflow-x-auto overscroll-x-contain px-1 pb-2 pt-1"
-              aria-label="Pending attachments"
-            >
-              {pendingUploads.map((upload, index) => (
-                <ComposerUploadStamp
-                  key={upload.id}
-                  upload={upload}
-                  index={index}
-                  onRemove={() => {
-                    if (upload.preview) URL.revokeObjectURL(upload.preview);
-                    setPendingUploads((current) =>
-                      current.filter((item) => item.id !== upload.id)
-                    );
-                  }}
-                />
-              ))}
-            </div>
-          )}
-          <textarea
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                submitComposer();
-              }
-            }}
-            placeholder={
-              listening
-                ? "Listening…"
-                : busy
-                  ? "eGov Agent is working…"
-                  : "Ask about any government service…"
-            }
-            rows={2}
-            className="min-h-16 w-full resize-none bg-transparent px-2 py-2 text-[16px] leading-6 outline-none placeholder:text-slate-400"
-          />
-          <div className="flex w-full items-center gap-1">
-            <input
-              ref={fileInputRef}
-              type="file"
-              multiple
-              hidden
-              accept=".pdf,.doc,.docx,.txt,.xls,.xlsx,.ppt,.pptx"
-              onChange={(event) => {
-                queueUploads(event.currentTarget.files, "file");
-                event.currentTarget.value = "";
+        <Squircle
+          cornerRadius={28}
+          className="mx-auto flex min-h-[116px] w-full max-w-2xl rounded-[28px] bg-[rgba(11,22,36,0.09)] p-px"
+        >
+          <Squircle
+            cornerRadius={27}
+            className="flex min-h-[114px] w-full flex-1 flex-col rounded-[27px] bg-white p-3"
+          >
+            {pendingUploads.length > 0 && (
+              <div
+                className="scrollbar-subtle mb-2 flex max-w-full gap-2 overflow-x-auto overscroll-x-contain px-1 pb-2 pt-1"
+                aria-label="Pending attachments"
+              >
+                {pendingUploads.map((upload, index) => (
+                  <ComposerUploadStamp
+                    key={upload.id}
+                    upload={upload}
+                    index={index}
+                    onRemove={() => {
+                      if (upload.preview) URL.revokeObjectURL(upload.preview);
+                      setPendingUploads((current) =>
+                        current.filter((item) => item.id !== upload.id)
+                      );
+                    }}
+                  />
+                ))}
+              </div>
+            )}
+            <textarea
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  submitComposer();
+                }
               }}
-            />
-            <input
-              ref={imageInputRef}
-              type="file"
-              multiple
-              hidden
-              accept="image/*"
-              onChange={(event) => {
-                queueUploads(event.currentTarget.files, "image");
-                event.currentTarget.value = "";
-              }}
-            />
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              title="Attach files"
-              aria-label="Attach files"
-              className="flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full text-slate-400 transition-[background-color,color,transform] duration-150 hover:bg-[#f6f9ff] hover:text-[#0a4f9e] active:scale-[0.96]"
-            >
-              <Paperclip size={18} />
-            </button>
-            <button
-              type="button"
-              onClick={() => imageInputRef.current?.click()}
-              title="Upload images"
-              aria-label="Upload images"
-              className="flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full text-slate-400 transition-[background-color,color,transform] duration-150 hover:bg-[#f6f9ff] hover:text-[#0a4f9e] active:scale-[0.96]"
-            >
-              <ImagePlus size={18} />
-            </button>
-            <button
-              type="button"
-              onClick={toggleMic}
-              title="Voice input"
-              aria-label="Voice input"
-              className={`ml-auto flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full transition-[background-color,color,transform] duration-150 active:scale-[0.96] ${
+              placeholder={
                 listening
-                  ? "animate-mic-pulse bg-red-500 text-white"
-                  : "text-slate-400 hover:bg-[#f6f9ff] hover:text-[#0a4f9e]"
-              }`}
-            >
-              <Mic size={19} />
-            </button>
-            <button
-              type="button"
-              onClick={submitComposer}
-              data-audit="none"
-              title="Submit message"
-              aria-label="Submit message"
-              disabled={busy || (!input.trim() && pendingUploads.length === 0)}
-              className="bg-brand-gradient flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full text-white shadow-[0_8px_18px_-10px_rgba(6,61,125,0.75)] transition-[opacity,transform,box-shadow] duration-150 hover:shadow-[0_10px_22px_-10px_rgba(6,61,125,0.85)] active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-35 disabled:shadow-none disabled:active:scale-100"
-            >
-              <ArrowUp size={18} strokeWidth={2.5} />
-            </button>
-          </div>
-        </div>
+                  ? "Listening…"
+                  : busy
+                    ? "eGov Agent is working…"
+                    : "Ask about any government service…"
+              }
+              rows={2}
+              className="min-h-16 w-full resize-none bg-transparent px-2 py-2 text-[16px] leading-6 outline-none placeholder:text-slate-400"
+            />
+            <div className="flex w-full items-center gap-1">
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                hidden
+                accept=".pdf,.doc,.docx,.txt,.xls,.xlsx,.ppt,.pptx"
+                onChange={(event) => {
+                  queueUploads(event.currentTarget.files, "file");
+                  event.currentTarget.value = "";
+                }}
+              />
+              <input
+                ref={imageInputRef}
+                type="file"
+                multiple
+                hidden
+                accept="image/*"
+                onChange={(event) => {
+                  queueUploads(event.currentTarget.files, "image");
+                  event.currentTarget.value = "";
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                title="Attach files"
+                aria-label="Attach files"
+                className="flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full text-slate-400 transition-[background-color,color,transform] duration-150 hover:bg-[#f6f9ff] hover:text-[#0a4f9e] active:scale-[0.96]"
+              >
+                <Paperclip size={18} />
+              </button>
+              <button
+                type="button"
+                onClick={() => imageInputRef.current?.click()}
+                title="Upload images"
+                aria-label="Upload images"
+                className="flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full text-slate-400 transition-[background-color,color,transform] duration-150 hover:bg-[#f6f9ff] hover:text-[#0a4f9e] active:scale-[0.96]"
+              >
+                <ImagePlus size={18} />
+              </button>
+              <button
+                type="button"
+                onClick={toggleMic}
+                title="Voice input"
+                aria-label="Voice input"
+                className={`ml-auto flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full transition-[background-color,color,transform] duration-150 active:scale-[0.96] ${
+                  listening
+                    ? "animate-mic-pulse bg-red-500 text-white"
+                    : "text-slate-400 hover:bg-[#f6f9ff] hover:text-[#0a4f9e]"
+                }`}
+              >
+                <Mic size={19} />
+              </button>
+              <button
+                type="button"
+                onClick={submitComposer}
+                data-audit="none"
+                title="Submit message"
+                aria-label="Submit message"
+                disabled={busy || (!input.trim() && pendingUploads.length === 0)}
+                className="bg-brand-gradient flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full text-white shadow-[0_8px_18px_-10px_rgba(6,61,125,0.75)] transition-[opacity,transform,box-shadow] duration-150 hover:shadow-[0_10px_22px_-10px_rgba(6,61,125,0.85)] active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-35 disabled:shadow-none disabled:active:scale-100"
+              >
+                <ArrowUp size={18} strokeWidth={2.5} />
+              </button>
+            </div>
+          </Squircle>
+        </Squircle>
         <div className="mx-auto mt-3 flex max-w-2xl flex-wrap items-center justify-center gap-x-4 gap-y-2 text-[12px] text-slate-400">
           <a
             href="mailto:support@e.gov.ph"
@@ -1053,7 +1062,8 @@ function CopyButton({ text }: { text: string }) {
   };
 
   return (
-    <button
+    <SquircleButton
+      cornerRadius={8}
       type="button"
       onClick={copy}
       title="Copy response"
@@ -1066,7 +1076,7 @@ function CopyButton({ text }: { text: string }) {
     >
       {copied ? <Check size={13} strokeWidth={2.5} /> : <Copy size={13} />}
       {copied ? "Copied" : "Copy"}
-    </button>
+    </SquircleButton>
   );
 }
 
@@ -1389,7 +1399,7 @@ function CardShell({
   children: React.ReactNode;
 }) {
   return (
-    <div className="max-w-md overflow-hidden rounded-2xl bg-white shadow-[0_18px_44px_-26px_rgba(6,61,125,0.35)]">
+    <Squircle cornerRadius={16} className="max-w-md overflow-hidden rounded-2xl bg-white shadow-[0_18px_44px_-26px_rgba(6,61,125,0.35)]">
       <div className="flex items-center gap-2.5 border-b border-slate-100 bg-[#fafcff] px-5 py-3">
         <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-[#0a4f9e]/10 text-[#0a4f9e]">
           {icon}
@@ -1405,7 +1415,7 @@ function CardShell({
         )}
       </div>
       {children}
-    </div>
+    </Squircle>
   );
 }
 
@@ -1473,7 +1483,7 @@ function FakeQrPreview({
   }
 
   return (
-    <div className="flex items-center gap-3 rounded-lg bg-[#f3f7fc] p-3 sm:flex-col sm:text-center">
+    <Squircle cornerRadius={8} className="flex items-center gap-3 rounded-lg bg-[#f3f7fc] p-3 sm:flex-col sm:text-center">
       <svg
         aria-label={`${label} preview`}
         className="h-[104px] w-[104px] shrink-0 bg-white p-2 shadow-[0_10px_24px_-18px_rgba(15,23,42,0.55)]"
@@ -1497,7 +1507,7 @@ function FakeQrPreview({
           Present at travel check-in
         </div>
       </div>
-    </div>
+    </Squircle>
   );
 }
 
@@ -1510,7 +1520,7 @@ function dateTile(date: string) {
 function ServiceCard({ card }: { card: Card }) {
   if (card.kind === "employmentPack") {
     return (
-      <div className="max-w-xl overflow-hidden rounded-2xl bg-white shadow-[0_18px_44px_-26px_rgba(6,61,125,0.42)]">
+      <Squircle cornerRadius={16} className="max-w-xl overflow-hidden rounded-2xl bg-white shadow-[0_18px_44px_-26px_rgba(6,61,125,0.42)]">
         <div className="bg-brand-gradient relative overflow-hidden px-5 py-5 text-white">
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_85%_15%,rgba(255,255,255,0.18),transparent_34%)]" />
           <div className="relative flex items-start gap-3.5">
@@ -1562,7 +1572,7 @@ function ServiceCard({ card }: { card: Card }) {
               const hasSeal = Boolean(sealFor(service.agency));
               const needsAction = service.status === "Needs action";
               return (
-                <div
+                <Squircle
                   key={service.agency}
                   style={{ animationDelay: `${index * 55}ms` }}
                   className="animate-result-in flex min-w-0 items-center gap-3 rounded-xl bg-[#f6f9fd] px-3 py-3"
@@ -1594,12 +1604,12 @@ function ServiceCard({ card }: { card: Card }) {
                     />
                     {service.status}
                   </span>
-                </div>
+                </Squircle>
               );
             })}
           </div>
 
-          <div className="mt-4 rounded-xl bg-[#fbfcfe] px-4 py-3">
+          <Squircle className="mt-4 rounded-xl bg-[#fbfcfe] px-4 py-3">
             <div className="flex items-center gap-2">
               <ShieldCheck size={14} className="text-[#0a4f9e]" />
               <FieldLabel>Private documents found in your Vault</FieldLabel>
@@ -1617,15 +1627,15 @@ function ServiceCard({ card }: { card: Card }) {
                 </div>
               ))}
             </div>
-          </div>
+          </Squircle>
         </div>
-      </div>
+      </Squircle>
     );
   }
 
   if (card.kind === "ereportDraft") {
     return (
-      <div className="max-w-xl overflow-hidden rounded-2xl bg-white shadow-[0_18px_44px_-26px_rgba(6,61,125,0.45)]">
+      <Squircle cornerRadius={16} className="max-w-xl overflow-hidden rounded-2xl bg-white shadow-[0_18px_44px_-26px_rgba(6,61,125,0.45)]">
         <div className="relative overflow-hidden bg-[linear-gradient(135deg,#073b7a_0%,#0a62ad_52%,#1595c8_100%)] px-5 py-5 text-white">
           <div className="relative flex items-start gap-3">
             <FileText size={24} className="mt-0.5 shrink-0 text-white/90" />
@@ -1716,13 +1726,13 @@ function ServiceCard({ card }: { card: Card }) {
           </div>
 
         </div>
-      </div>
+      </Squircle>
     );
   }
 
   if (card.kind === "ereportConfirmation") {
     return (
-      <div className="max-w-xl overflow-hidden rounded-2xl bg-white shadow-[0_18px_44px_-26px_rgba(6,61,125,0.45)]">
+      <Squircle cornerRadius={16} className="max-w-xl overflow-hidden rounded-2xl bg-white shadow-[0_18px_44px_-26px_rgba(6,61,125,0.45)]">
         <div className="relative overflow-hidden bg-[linear-gradient(135deg,#047857_0%,#059669_55%,#0d9488_100%)] px-5 py-5 text-white">
           <div className="relative flex items-center gap-3.5">
             <Check size={28} strokeWidth={3.2} className="shrink-0 text-white" />
@@ -1804,7 +1814,7 @@ function ServiceCard({ card }: { card: Card }) {
             </div>
           </div>
         </div>
-      </div>
+      </Squircle>
     );
   }
 
@@ -2000,7 +2010,7 @@ function ServiceCard({ card }: { card: Card }) {
 
   if (card.kind === "ltoViolation") {
     return (
-      <div className="max-w-xl overflow-hidden rounded-2xl bg-white shadow-[0_18px_44px_-26px_rgba(6,61,125,0.35)]">
+      <Squircle cornerRadius={16} className="max-w-xl overflow-hidden rounded-2xl bg-white shadow-[0_18px_44px_-26px_rgba(6,61,125,0.35)]">
         <div className="bg-brand-gradient relative overflow-hidden px-5 py-5 text-white">
           <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.12),transparent_55%)]" />
           <div className="relative flex items-start gap-3">
@@ -2096,7 +2106,7 @@ function ServiceCard({ card }: { card: Card }) {
             </div>
           </div>
         </div>
-      </div>
+      </Squircle>
     );
   }
 
@@ -2132,7 +2142,7 @@ function ServiceCard({ card }: { card: Card }) {
 
   if (card.kind === "map") {
     return (
-      <div className="max-w-xl overflow-hidden rounded-2xl bg-white shadow-[0_18px_44px_-26px_rgba(6,61,125,0.35)]">
+      <Squircle cornerRadius={16} className="max-w-xl overflow-hidden rounded-2xl bg-white shadow-[0_18px_44px_-26px_rgba(6,61,125,0.35)]">
         <div className="flex items-center gap-2.5 border-b border-slate-100 bg-[#fafcff] px-5 py-3">
           <AgencySeal label="DFA" size={24} />
           <span className="font-pixel min-w-0 truncate text-[10.5px] uppercase tracking-[0.16em] text-[#0a4f9e]">
@@ -2223,7 +2233,7 @@ function ServiceCard({ card }: { card: Card }) {
             </div>
           ))}
         </div>
-      </div>
+      </Squircle>
     );
   }
 

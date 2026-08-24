@@ -17,6 +17,7 @@ import {
   useState,
 } from "react";
 import { AgentMark } from "@/components/brand";
+import { Squircle, SquircleButton } from "@/components/squircle";
 
 const BLUR_LEAD_MS = 150;
 const MODAL_EXIT_MS = 150;
@@ -170,16 +171,8 @@ export function PrivacyNoticeModal({
       }`}
       onMouseDown={closeFromBackdrop}
     >
-      <div
-        ref={dialogRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="privacy-title"
-        aria-describedby="privacy-summary"
-        tabIndex={-1}
-        onKeyDown={handleDialogKeyDown}
-        aria-hidden={!modalVisible}
-        inert={modalVisible ? undefined : true}
+      <Squircle
+        cornerRadius={18}
         className={`relative my-auto flex max-h-[calc(100dvh-2.5rem)] w-full max-w-2xl flex-col overflow-hidden rounded-[18px] bg-white outline-none transition-[opacity,transform,filter] sm:max-h-[calc(100dvh-4rem)] ${
           closing
             ? "-translate-y-2 scale-[0.99] opacity-0 blur-[2px] duration-150 ease-in"
@@ -188,6 +181,18 @@ export function PrivacyNoticeModal({
               : "translate-y-2 scale-[0.985] opacity-0 blur-[3px] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]"
         }`}
       >
+        <div
+          ref={dialogRef}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="privacy-title"
+          aria-describedby="privacy-summary"
+          tabIndex={-1}
+          onKeyDown={handleDialogKeyDown}
+          aria-hidden={!modalVisible}
+          inert={modalVisible ? undefined : true}
+          className="flex min-h-0 flex-1 flex-col outline-none"
+        >
         <div className="min-h-0 overflow-y-auto px-5 pb-5 pt-6 sm:px-8 sm:pb-6 sm:pt-7">
           <div className="mb-5 flex items-center justify-between gap-4">
             <div className="flex items-center gap-3">
@@ -201,14 +206,15 @@ export function PrivacyNoticeModal({
                 </p>
               </div>
             </div>
-            <button
+            <SquircleButton
+              cornerRadius={8}
               type="button"
               onClick={closeWithAnimation}
               aria-label="Close privacy notice"
               className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-500 transition-[background-color,color,transform] duration-150 hover:bg-slate-200 hover:text-slate-800 active:scale-[0.96]"
             >
               <X size={19} strokeWidth={2} aria-hidden />
-            </button>
+            </SquircleButton>
           </div>
 
           <h1
@@ -244,7 +250,7 @@ export function PrivacyNoticeModal({
             />
           </div>
 
-          <div className="mt-4 rounded-xl bg-[#f4f8fd] px-4 py-4 sm:px-5">
+          <Squircle className="mt-4 rounded-xl bg-[#f4f8fd] px-4 py-4 sm:px-5">
             <div className="flex items-center gap-2 text-[#0a4f9e]">
               <ShieldCheck size={17} strokeWidth={1.9} aria-hidden />
               <p className="text-[13px] font-bold text-[#0b1b31]">Important</p>
@@ -255,9 +261,10 @@ export function PrivacyNoticeModal({
               authorize a payment, form submission, or sharing with an agency.
               We will ask for your confirmation before any of those actions.
             </p>
-          </div>
+          </Squircle>
         </div>
-      </div>
+        </div>
+      </Squircle>
     </div>
   );
 }
@@ -272,7 +279,7 @@ function PrivacyPoint({
   description: string;
 }) {
   return (
-    <div className="rounded-xl bg-[#f7faff] px-4 py-4">
+    <Squircle className="rounded-xl bg-[#f7faff] px-4 py-4">
       <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#e8f2ff] text-[#0a4f9e]">
         {icon}
       </div>
@@ -280,6 +287,6 @@ function PrivacyPoint({
       <p className="mt-1 text-xs leading-[1.55] text-slate-600">
         {description}
       </p>
-    </div>
+    </Squircle>
   );
 }

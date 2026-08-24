@@ -17,6 +17,7 @@ import {
 import { VaultFileStamp } from "@/components/vault-file-stamp";
 import { recordAuditEvent } from "@/lib/audit-log";
 import { useSensoryUI } from "@/lib/provider";
+import { Squircle } from "@/components/squircle";
 
 type VaultDoc = {
   name: string;
@@ -139,21 +140,23 @@ function DocRow({ doc, index }: { doc: VaultDoc; index: number }) {
 
   if (doc.href) {
     return (
-      <a
-        href={doc.href}
-        data-audit="Opened a Personal Vault document"
-        target="_blank"
-        rel="noreferrer"
-        className="group animate-step-in flex min-h-[88px] cursor-pointer items-center gap-3 rounded-2xl px-3 py-2 transition-[background-color,box-shadow,transform] duration-200 hover:bg-white hover:shadow-[0_12px_30px_-18px_rgba(6,61,125,0.35)] focus-visible:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0a4f9e]/25 active:scale-[0.99] sm:gap-4"
-      >
-        {inner}
-      </a>
+      <Squircle asChild cornerRadius={16}>
+        <a
+          href={doc.href}
+          data-audit="Opened a Personal Vault document"
+          target="_blank"
+          rel="noreferrer"
+          className="group animate-step-in flex min-h-[88px] cursor-pointer items-center gap-3 rounded-2xl px-3 py-2 transition-[background-color,box-shadow,transform] duration-200 hover:bg-white hover:shadow-[0_12px_30px_-18px_rgba(6,61,125,0.35)] focus-visible:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0a4f9e]/25 active:scale-[0.99] sm:gap-4"
+        >
+          {inner}
+        </a>
+      </Squircle>
     );
   }
   return (
-    <div className="group animate-step-in flex min-h-[88px] items-center gap-3 rounded-2xl px-3 py-2 sm:gap-4">
+    <Squircle cornerRadius={16} className="group animate-step-in flex min-h-[88px] items-center gap-3 rounded-2xl px-3 py-2 sm:gap-4">
       {inner}
-    </div>
+    </Squircle>
   );
 }
 
@@ -236,7 +239,7 @@ export default function VaultPage() {
         </div>
 
         {/* storage capacity */}
-        <div className="animate-fade-up delay-200 mt-6 flex items-center gap-5 rounded-xl bg-white p-4 shadow-[0_18px_44px_-30px_rgba(6,61,125,0.3)]">
+        <Squircle className="animate-fade-up delay-200 mt-6 flex items-center gap-5 rounded-xl bg-white p-4 shadow-[0_18px_44px_-30px_rgba(6,61,125,0.3)]">
           <CapacityDonut usedBytes={usedBytes} />
           <div className="min-w-0">
             <div className="text-[13.5px] font-semibold text-slate-700">
@@ -251,7 +254,7 @@ export default function VaultPage() {
               Room for ~700 more documents
             </div>
           </div>
-        </div>
+        </Squircle>
 
         <div className="animate-fade-up delay-200 mt-6 -mx-2 space-y-1">
           {docs.map((d, i) => (
@@ -259,14 +262,14 @@ export default function VaultPage() {
           ))}
         </div>
 
-        <div className="animate-fade-up delay-300 mt-6 flex items-start gap-2.5 rounded-xl bg-[#0a4f9e]/[0.04] px-4 py-3.5 text-[12.5px] leading-relaxed text-slate-500">
+        <Squircle className="animate-fade-up delay-300 mt-6 flex items-start gap-2.5 rounded-xl bg-[#0a4f9e]/[0.04] px-4 py-3.5 text-[12.5px] leading-relaxed text-slate-500">
           <Lock size={14} className="mt-0.5 shrink-0 text-[#0a4f9e]" />
           <span>
             Files are encrypted at rest and only opened when a transaction
             needs them — with your consent, every time. Click any document to
             view it.
           </span>
-        </div>
+        </Squircle>
       </div>
     </div>
   );

@@ -11,6 +11,7 @@ import {
   EVerifyMark,
   PartnerLogos,
 } from "@/components/brand";
+import { SquircleButton } from "@/components/squircle";
 
 const VERIFY_DURATION_MS = 4800;
 
@@ -104,34 +105,37 @@ export default function IntroPage() {
                 }}
                 className="font-pixel h-16 flex-1 bg-transparent px-6 text-[17px] tracking-wide outline-none placeholder:text-slate-300"
               />
-              <button
+              <SquircleButton
+                cornerRadius={12}
                 onClick={startVerification}
                 disabled={!pcnComplete}
                 aria-label="Continue"
                 className="bg-brand-gradient m-2 flex h-12 w-12 items-center justify-center rounded-xl text-white shadow-[0_8px_18px_rgba(6,61,125,0.16)] transition-all duration-200 ease-out enabled:cursor-pointer enabled:hover:-translate-y-0.5 enabled:hover:brightness-105 enabled:hover:shadow-[0_16px_30px_rgba(6,61,125,0.28)] enabled:active:translate-y-0 enabled:active:scale-95 disabled:cursor-not-allowed disabled:opacity-25 disabled:shadow-none"
               >
                 <ArrowRight size={20} />
-              </button>
+              </SquircleButton>
             </div>
             <p className="font-pixel px-1 text-[11px] uppercase tracking-widest text-slate-400">
               PhilSys Card Number
             </p>
 
             <div className="pt-4 space-y-2.5">
-              <button
+              <SquircleButton
+                cornerRadius={16}
                 onClick={startVerification}
                 className="hairline flex h-14 w-full cursor-pointer items-center justify-center gap-3 rounded-2xl bg-white text-[16px] text-slate-700 shadow-[0_8px_22px_rgba(11,22,36,0.04)] transition-all duration-200 ease-out hover:-translate-y-0.5 hover:border-[#0a4f9e]/50 hover:bg-[#f8fbff] hover:text-[#0a4f9e] hover:shadow-[0_16px_34px_rgba(6,61,125,0.12)] active:translate-y-0 active:scale-[0.99]"
               >
                 <EVerifyMark size={20} />
                 Sign in with <span className="-ml-1.5 font-semibold">eVerify</span>
-              </button>
-              <button
+              </SquircleButton>
+              <SquircleButton
+                cornerRadius={16}
                 onClick={startVerification}
                 className="hairline flex h-14 w-full cursor-pointer items-center justify-center gap-3 rounded-2xl bg-white text-[16px] text-slate-700 shadow-[0_8px_22px_rgba(11,22,36,0.04)] transition-all duration-200 ease-out hover:-translate-y-0.5 hover:border-[#0a4f9e]/50 hover:bg-[#f8fbff] hover:text-[#0a4f9e] hover:shadow-[0_16px_34px_rgba(6,61,125,0.12)] active:translate-y-0 active:scale-[0.99]"
               >
                 <Smartphone size={19} className="text-[#0a4f9e]" />
                 Continue with <span className="-ml-1.5 font-semibold">eGovPH</span>
-              </button>
+              </SquircleButton>
             </div>
           </div>
 
