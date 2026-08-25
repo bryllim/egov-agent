@@ -1,14 +1,5 @@
 import "server-only";
 
-import { createGoogle } from "@ai-sdk/google";
-import {
-  APICallError,
-  generateText,
-  jsonSchema,
-  NoObjectGeneratedError,
-  Output,
-} from "ai";
-
 import {
   GOVERNMENT_ROUTES,
   type ContextualAgentRequest,
@@ -16,24 +7,10 @@ import {
   type GovernmentRoute,
   hasCompleteETravelDetails,
 } from "@/app/agent/ai-contract";
+import { EgovAiApiError, generateEgovAiAssistant } from "@/lib/ai/egov-ai";
 
-const DEFAULT_MODEL = "gemini-3.6-flash";
-const REQUEST_TIMEOUT_MS = 120_000;
 const PHILIPPINES_TIME_ZONE = "Asia/Manila";
-const REASONING_EFFORTS = [
-  "none",
-  "minimal",
-  "low",
-  "medium",
-  "high",
-  "xhigh",
-] as const;
-
-const google = createGoogle({
-  apiKey:
-    process.env.GEMINI_API_KEY ||
-    process.env.GOOGLE_GENERATIVE_AI_API_KEY,
-});
+const MAX_EGOV_AI_PROMPT_LENGTH = 4_000;
 
 const ROUTE_GUIDE = `
 Choose exactly one route:
@@ -41,8 +18,8 @@ Choose exactly one route:
 - dfa_nearest: locating a DFA passport office or appointment site
 - dfa_confirm: confirming or booking the DFA slot already offered
 - nbi_clearance: applying for or checking an NBI clearance
-- nbi_pay: opening the NBI eGovPay checkout
-- nbi_confirm_pay: authorizing the NBI payment
+- nbi_pay: creating the reviewed NBI hosted eGovPay checkout
+- nbi_confirm_pay: checking the NBI eGovPay transaction after hosted checkout
 - sss_contributions: SSS contributions, membership, benefits, or pension records
 - philhealth_contributions: PhilHealth premium contributions or payment history
 - philhealth_record: PhilHealth membership, dependents, or MDR
@@ -50,7 +27,7 @@ Choose exactly one route:
 - lto_license: driver's license renewal, status, or requirements
 - lto_violations: checking an LTO ticket, alarm, OGA case, or violation
 - lto_violation_pay: opening the LTO violation checkout
-- lto_violation_confirm_pay: authorizing the LTO payment
+- lto_violation_confirm_pay: checking the LTO eGovPay transaction after hosted checkout
 - bir_tax: BIR, TIN, ITR, tax registration, or tax clearance
 - postal_id: Postal ID application or requirements
 - postal_book: booking the Postal ID capture slot already offered
@@ -62,8 +39,12 @@ Choose exactly one route:
   employment-onboarding government requirements across several agencies
 - business_one_stop: starting a sole proprietorship, registering a business
   name, or coordinating DTI, BIR, barangay, and eLGU business requirements
+- dbm_compass: DBM Compass budget data, including SAAODB, NCA, SARO, and LGSF
 - ereport: reporting flooding, hazards, blocked roads, or public-safety incidents
 - ereport_submit: submitting the prepared eReport
+- emessage_preview: preparing an SMS for an explicitly provided E.164 number,
+  or the verified eGovPH mobile number when no number is provided
+- emessage_send: sending the reviewed eMessage SMS after explicit confirmation
 - cde_exam: starting the LTO Comprehensive Driver's Education exam
 - greeting: greetings, thanks, or casual conversation
 - general_government: every other government concern, including PSA, Pag-IBIG,
@@ -75,10 +56,11 @@ const SERVICE_CONTEXT = `
 Available service results:
 - DFA passport: eligible renewal record; earliest slot at DFA CO SM
   Megamall; appointment and pre-filled form cards are available.
-- NBI clearance: online application, checkout, and receipt cards are available.
+- NBI clearance: online application and a hosted eGovPay test checkout are
+  available. Payment status must be read back from eGovPay.
   The clearance fee is ₱155.00 plus a ₱25.00 e-payment fee, for a ₱180.00
   total. The checkout uses the user's eGov Pay wallet ending in 4482. The
-  digital copy is generated after payment.
+  Never claim payment or issue a receipt from a redirect alone.
 - SSS: an active-member contribution statement with 87 posted contributions is
   available.
 - PhilHealth: an active member record, two registered dependents, a separate
@@ -105,7 +87,11 @@ Available service results:
   name registration, BIR taxpayer registration, and Mandaluyong eLGU permits.
   Each agency remains the source of truth and returns its own requirements and
   fees before any submission or payment.
-- eReport: incident triage and multi-agency dispatch are available.
+- eReport: live report-type and location datasets, reviewed complaint
+  submission, and official case-number acknowledgement are available.
+- eMessage: a custom SMS and E.164 recipient can be previewed, then sent only
+  after the user explicitly confirms the reviewed draft. An API success means
+  the SMS request was accepted, not delivered to the handset.
 - Other routes: give useful guidance and identify the best agency, but do not
   invent a record, transaction, fee, deadline, or API result.
 `;
@@ -210,7 +196,20 @@ Rules:
 22. For philhealth_contributions, show the dedicated premium history result.
     Do not describe it as part of an employment starter workflow.
 23. For philhealth_record, show membership, member type, dependents, and MDR
-    details only. Do not include premium contribution history.`;
+    details only. Do not include premium contribution history.
+24. For ereport, prepare a review first using the official report-type and
+    location datasets. For ereport_submit, submit only after the conversation
+    contains that reviewed draft. Do not claim a receiving agency accepted,
+    dispatched, or assigned a response time unless the eReport API says so.
+25. For nbi_pay and lto_violation_pay, create only the hosted test checkout
+    after the user explicitly requests it. For nbi_confirm_pay and
+    lto_violation_confirm_pay, read the existing transaction status from
+    eGovPay. Never claim payment, settlement, agency posting, or receipt
+    issuance from the user's words or a redirect alone.
+26. For emessage_preview, preserve the explicitly provided recipient and SMS
+    body but do not send them. Use emessage_send only after the user explicitly
+    selects the send action for a reviewed draft. An accepted API request is
+    not proof of handset delivery.`;
 
 type StructuredRoute = {
   route: GovernmentRoute;
@@ -225,7 +224,7 @@ type StructuredRoute = {
   travel_details: ETravelDetails;
 };
 
-const ROUTE_SCHEMA = jsonSchema<StructuredRoute>({
+const ROUTE_SCHEMA = {
   type: "object",
   additionalProperties: false,
   properties: {
@@ -278,7 +277,7 @@ const ROUTE_SCHEMA = jsonSchema<StructuredRoute>({
     "suggested_actions",
     "travel_details",
   ],
-});
+} as const;
 
 export class AiRouterError extends Error {
   constructor(
@@ -294,11 +293,6 @@ function trimText(value: unknown, fallback: string, maxLength = 1_000) {
   return typeof value === "string" && value.trim()
     ? value.trim().slice(0, maxLength)
     : fallback;
-}
-
-function reasoningEffort() {
-  const configured = process.env.AI_REASONING_EFFORT;
-  return REASONING_EFFORTS.find((effort) => effort === configured) || "low";
 }
 
 function normalizeUserTerminology(text: string) {
@@ -431,66 +425,39 @@ function normalizeStructuredRoute(value: unknown): StructuredRoute {
 
 function formatPersonalContext(request: ContextualAgentRequest) {
   const { personalContext } = request;
-  const preferences = personalContext.preferences
-    .map((preference) => `- ${preference}`)
-    .join("\n");
   const appointments = personalContext.appointments
     .map(
       (appointment) =>
-        `- ${appointment.agency} ${appointment.service}: ${appointment.date} at ${appointment.time}, ${appointment.location}`
+        `${appointment.agency} ${appointment.service} on ${appointment.date} at ${appointment.time}, ${appointment.location}`
     )
-    .join("\n");
-  const memories = personalContext.memories
-    .map((memory) => `- ${memory.text} (${memory.source})`)
-    .join("\n");
+    .join("; ");
   const vault = personalContext.vault
-    .map((document) => {
-      const use = document.usableFor.length
-        ? `; suitable for ${document.usableFor.join(", ")}`
-        : "";
-      return `- ${document.name}: ${document.status}${use}`;
-    })
-    .join("\n");
+    .map((document) => document.name)
+    .join(", ");
   const records = personalContext.connectedRecords
-    .map(
-      (record) =>
-        `- ${record.source}: ${record.availableData}. Use: ${record.allowedUse}`
-    )
-    .join("\n");
+    .map((record) => record.source)
+    .join(", ");
 
-  return `Trusted eGov account context:
-Profile:
-- Home location: ${personalContext.profile.homeLocation}
-- Language: ${personalContext.profile.languagePreference}
-- Employment: ${personalContext.profile.employment}
-
-Preferences:
-${preferences}
-
-Existing appointments:
-${appointments || "- None"}
-
-Relevant memories:
-${memories || "- None"}
-
-Personal Vault inventory:
-${vault || "- No documents"}
-
-Connected records:
-${records || "- None"}`;
+  return `Trusted account context: home ${personalContext.profile.homeLocation}; language ${personalContext.profile.languagePreference}; employment ${personalContext.profile.employment}.
+Appointments: ${appointments || "none"}.
+Private Vault files (require consent before use): ${vault || "none"}.
+Connected agencies: ${records || "none"}.`;
 }
 
 function formatConversation(request: ContextualAgentRequest) {
   const history = request.history
-    .slice(-10)
-    .map((item) => `${item.role === "user" ? "User" : "Assistant"}: ${item.text}`)
+    .slice(-4)
+    .map(
+      (item) =>
+        `${item.role === "user" ? "User" : "Assistant"}: ${item.text.slice(0, 500)}`
+    )
     .join("\n");
 
   return [
+    `Latest request:\n${request.message.slice(0, 2_500)}`,
     `User first name: ${request.user.firstName}`,
     formatPersonalContext(request),
     history ? `Recent conversation:\n${history}` : "Recent conversation: none",
-    `Latest request:\n${request.message}`,
   ].join("\n\n");
 }
 
@@ -531,61 +498,83 @@ function formatRuntimeContext(now: Date) {
 }
 
 export async function routeGovernmentRequest(request: ContextualAgentRequest) {
-  const model = (process.env.AI_MODEL || DEFAULT_MODEL).replace(
-    /^google\//,
-    ""
-  );
   const runtimeContext = formatRuntimeContext(new Date());
+  const outputKeys = Object.keys(ROUTE_SCHEMA.properties).join(", ");
+  const routingIntroduction = SYSTEM_PROMPT.split("\n").slice(0, 2).join(" ");
+  const compactInstructions = `${routingIntroduction}
+
+Allowed route values: ${GOVERNMENT_ROUTES.join(", ")}.
+
+Return only valid JSON, without a code fence or surrounding text. Use exactly
+these keys: ${outputKeys}.
+- route: one allowed route value.
+- agency, service, intent_summary, routing_reason, response: strings.
+- needs_clarification: boolean; confidence: number from 0 to 1.
+- suggested_actions: zero to three short imperative strings.
+- travel_details: object with direction, origin, destination, travelDate,
+  travelTime, flightNumber. Every value is a string or null; direction is
+  arrival, departure, or null.
+
+Rules:
+1. Answer in the user's language in under 150 words using concise Markdown.
+2. Ground facts only in the request and account context. Never invent records,
+   fees, deadlines, eligibility, appointments, or API results.
+3. Use general_government and ask one focused question when unclear.
+4. Never request passwords, OTPs, full IDs, or card numbers.
+5. Vault files require consent. Payments, bookings, reports, applications, and
+   submissions require confirmation; the service layer performs them.
+6. For eTravel, extract only the six travel fields stated in the conversation.
+   Missing fields stay null and require clarification.
+7. routing_reason is a short agency match, not private reasoning.`;
+  const compassRule =
+    "Use dbm_compass for DBM Compass, SAAODB, NCA, SARO, LGSF, appropriations, allotments, obligations, disbursements, or budget-release queries.";
+  const emessageRule =
+    "Use emessage_preview when the user provides or asks to preview an eMessage SMS recipient or message. Use emessage_send only when the user explicitly selects the send action for the reviewed eMessage SMS.";
+  const rawPrompt = `${compactInstructions}
+
+${compassRule}
+
+${emessageRule}
+
+${runtimeContext}
+
+${formatConversation(request)}`;
+  const prompt = rawPrompt.slice(0, MAX_EGOV_AI_PROMPT_LENGTH);
 
   try {
-    const generation = await generateText({
-      model: google(model),
-      instructions: `${SYSTEM_PROMPT}\n\n${runtimeContext}`,
-      prompt: formatConversation(request),
-      output: Output.object({
-        schema: ROUTE_SCHEMA,
-        name: "egov_route",
-        description:
-          "Routes one user request to the appropriate Philippine government service.",
-      }),
-      reasoning: reasoningEffort(),
-      maxOutputTokens: 1_200,
-      timeout: REQUEST_TIMEOUT_MS,
-    });
+    const generatedText = await generateEgovAiAssistant(prompt);
+    const withoutFence = generatedText
+      .replace(/^```(?:json)?\s*/i, "")
+      .replace(/\s*```$/i, "")
+      .trim();
+    const objectStart = withoutFence.indexOf("{");
+    const objectEnd = withoutFence.lastIndexOf("}");
+    if (objectStart < 0 || objectEnd <= objectStart) {
+      throw new AiRouterError(
+        "eGov AI returned invalid structured data.",
+        502
+      );
+    }
+    const parsed = JSON.parse(
+      withoutFence.slice(objectStart, objectEnd + 1)
+    ) as unknown;
 
     return {
-      result: normalizeStructuredRoute(generation.output),
-      model,
-      reasoningTokens:
-        generation.usage.outputTokenDetails.reasoningTokens || 0,
+      result: normalizeStructuredRoute(parsed),
     };
   } catch (error: unknown) {
     if (error instanceof AiRouterError) {
       throw error;
     }
 
-    if (APICallError.isInstance(error)) {
-      const status =
-        error.statusCode === 429
-          ? 429
-          : error.statusCode && error.statusCode >= 400 && error.statusCode < 500
-            ? 503
-            : 502;
-      throw new AiRouterError(
-        status === 429
-          ? "The AI service is busy. Please try again shortly."
-          : "The AI service is temporarily unavailable.",
-        status
-      );
+    if (error instanceof EgovAiApiError) {
+      throw new AiRouterError(error.message, error.status);
     }
 
-    if (NoObjectGeneratedError.isInstance(error)) {
-      throw new AiRouterError(
-        "The AI service returned invalid structured data.",
-        502
-      );
+    if (error instanceof SyntaxError) {
+      throw new AiRouterError("eGov AI returned invalid structured data.", 502);
     }
 
-    throw new AiRouterError("The AI service is temporarily unavailable.", 503);
+    throw new AiRouterError("eGov AI is temporarily unavailable.", 503);
   }
 }

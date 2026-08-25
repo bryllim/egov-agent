@@ -24,8 +24,11 @@ export const GOVERNMENT_ROUTES = [
   "psa_certificate_submit",
   "employment_starter",
   "business_one_stop",
+  "dbm_compass",
   "ereport",
   "ereport_submit",
+  "emessage_preview",
+  "emessage_send",
   "cde_exam",
   "greeting",
   "general_government",
@@ -68,6 +71,10 @@ export type AgentApiRequest = {
   user: {
     name: string;
     firstName: string;
+    mobile?: string;
+    email?: string;
+    sex?: string;
+    address?: string;
   };
 };
 

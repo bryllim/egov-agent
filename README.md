@@ -6,21 +6,32 @@ This application is a hybrid proof of concept:
   eGov SSO sandbox token/profile exchange. Partner credentials stay on the
   server and the local app session is stored in an encrypted HTTP-only cookie.
 - The AI understanding, government-service routing, response, and safe reasoning
-  summary come directly from the Google Gemini API through the Vercel AI SDK.
-- Government agency records, payments, bookings, and document cards remain
-  simulated demo connectors.
+  summary come directly from the official eGov AI API.
+- DBM budget queries use the live Compass API. Flooding reports validate their
+  category and PSGC location through eReport, then submit only after explicit
+  review. NBI and LTO demo payments create hosted eGovPay test checkouts and
+  read the provider status back before showing any result. Other agency
+  records, bookings, and document cards remain simulated demo connectors.
 - Arbitrary English, Filipino, and Taglish requests are supported. Services
   without a demo connector still receive live AI guidance and an agency route,
   but no fake record or transaction card.
 
 ## Run the POC
 
-1. Create a Gemini API key in Google AI Studio.
+1. Generate an eGov AI hackathon credential in the
+   [official eGov AI catalog](https://platforms.e.gov.ph/dashboard/api-catalogs/egov-ai).
 2. Obtain an eGov SSO sandbox credential from the
    [official developer portal](https://platforms.e.gov.ph/dashboard/api-catalogs/egov-sso).
-3. Copy `.env.example` to `.env.local`, set `GEMINI_API_KEY`, and fill the
-   `EGOV_SSO_*` values. Generate `EGOV_SESSION_SECRET` with at least 32 random
-   characters.
+   Generate a Compass credential from the
+   [official Compass catalog](https://platforms.e.gov.ph/dashboard/api-catalogs/compass)
+   when testing DBM budget queries. Generate an eReport access code from the
+   [official eReport catalog](https://platforms.e.gov.ph/dashboard/api-catalogs/ereport)
+   when testing citizen-report submission. For hosted test payments, generate
+   a `test_` eGovPay token and settlement template in the
+   [official eGovPay catalog](https://platforms.e.gov.ph/dashboard/api-catalogs/egovpay).
+3. Copy `.env.example` to `.env.local`, set `EGOV_AI_BASE_URL` and
+   `EGOV_AI_ACCESS_CODE`, and fill the `EGOV_SSO_*` values. Generate
+   `EGOV_SESSION_SECRET` with at least 32 random characters.
 4. Install dependencies and run the app:
 
 ```bash
@@ -28,18 +39,46 @@ npm install
 npm run dev
 ```
 
-The default model and reasoning level are:
+The eGov AI gateway configuration is:
 
 ```dotenv
-GEMINI_API_KEY=replace-with-your-gemini-api-key
-AI_MODEL=gemini-3.6-flash
-AI_REASONING_EFFORT=low
+EGOV_AI_BASE_URL=https://platforms-api.e.gov.ph/egov-ai
+EGOV_AI_ACCESS_CODE=replace-with-your-egov-ai-access-code
+COMPASS_BASE_URL=https://platforms-api.e.gov.ph/compass
+COMPASS_API_KEY=replace-with-your-compass-token
+EREPORT_BASE_URL=https://platforms-api.e.gov.ph/ereport
+EREPORT_ACCESS_CODE=replace-with-your-ereport-access-code
+EMESSAGE_BASE_URL=https://platforms-api.e.gov.ph/emessage
+EMESSAGE_AUTH_TOKEN=replace-with-your-emessage-token
+EGOVPAY_BASE_URL=https://platforms-api.e.gov.ph/egovpay
+EGOVPAY_MERCHANT_TOKEN=replace-with-your-portal-issued-token
+EGOVPAY_SETTLEMENT_TEMPLATE_UUID=replace-with-template-uuid
 ```
 
-Add the same `GEMINI_API_KEY` as a secret environment variable in the Vercel
-project before deployment. `GOOGLE_GENERATIVE_AI_API_KEY` is also supported as
-an alternative name. The `AI_MODEL` value remains configurable so the
-application can switch Gemini models without changing the agent code.
+Paste the 32-character Token exactly as shown in the portal. The server adds
+the required `test_` prefix before signing and sending sandbox requests.
+
+Add `EGOV_AI_ACCESS_CODE` as a secret environment variable in the Vercel
+project before deployment. The app exchanges it for a short-lived bearer token
+on the server and never exposes either credential to the browser. Keep the
+Compass token and eReport access code server-side for the same reason. eReport
+exchanges the access code for a short-lived bearer token and never exposes it
+to browser code. The eMessage token stays server-side; custom E.164 recipients
+and message bodies require a reviewed draft and an explicit send action. The
+demo limits each recipient to three attempts per ten minutes, and an accepted
+request is not reported as handset delivery. eGovPay HMAC digests are generated
+exclusively on the server. Use only the credential issued for the hackathon
+environment and verify the environment shown by eGovPay before completing a
+checkout.
+
+Custom eMessage example:
+
+```text
+Send an eMessage to +639171234567 saying "Your appointment is confirmed."
+```
+
+The app creates a ten-minute, single-use draft and sends only after the user
+selects the confirmation action.
 
 Open [http://localhost:3000](http://localhost:3000), choose **Continue with
 eGovPH**, and sign in with one of the official sandbox identities shown by the
@@ -63,7 +102,7 @@ handoff.
 ```mermaid
 flowchart LR
   A[User request] --> B[Next.js API route]
-  B --> C[Google Gemini API]
+  B --> C[eGov AI API]
   C --> D{Known demo route?}
   D -->|Yes| E[Simulated eGov connector]
   D -->|No| F[Guidance-only response]

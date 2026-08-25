@@ -164,6 +164,15 @@ function cardLines(card: Card) {
         ...card.fields.map((field) => `${field.label}: ${field.value}`),
         ...(card.qr ? [`${card.qr.label}: ${card.qr.value}`] : []),
       ];
+    case "budget":
+      return [
+        `**${card.title}**`,
+        card.subtitle,
+        ...card.metrics.map((metric) => `${metric.label}: ${metric.value}`),
+        ...card.series.map((item) => `${item.label}: ${item.valueLabel}`),
+        `Source: ${card.source}`,
+        `Retrieved: ${card.retrievedAt}`,
+      ];
     case "employmentPack":
       return [
         `**${card.title} · ${card.ready}/${card.total} ready**`,
@@ -183,6 +192,10 @@ function cardLines(card: Card) {
         `Total: ${card.total}`,
         `Payment method: ${card.method}`,
         `Reference: ${card.reference}`,
+        ...(card.providerReference
+          ? [`eGovPay reference: ${card.providerReference}`]
+          : []),
+        ...(card.checkoutUrl ? [`Checkout: ${card.checkoutUrl}`] : []),
       ];
     case "receipt":
       return [

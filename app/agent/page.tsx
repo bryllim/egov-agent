@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowUp,
+  BarChart3,
   Briefcase,
   CalendarDays,
   Check,
@@ -14,6 +15,7 @@ import {
   Copy,
   CreditCard,
   Database,
+  ExternalLink,
   FileText,
   Fingerprint,
   HelpCircle,
@@ -58,6 +60,41 @@ type AgentApiResponse = {
   plan: Plan;
   suggestedActions: string[];
 };
+
+const DEMO_PROMPTS = [
+  {
+    label: "View Compass budget",
+    prompt: "Show the 2026 DBM SAAODB summary",
+    icon: BarChart3,
+  },
+  {
+    label: "File an eReport",
+    prompt: "File a flooding eReport",
+    icon: CircleAlert,
+  },
+  {
+    label: "Start eGovPay flow",
+    prompt: "Get me an NBI clearance",
+    icon: CreditCard,
+  },
+  {
+    label: "Draft an eMessage",
+    prompt:
+      'Send an eMessage to +639090000001 saying "Your hackathon demo request is ready."',
+    icon: Mail,
+  },
+  {
+    label: "Create eTravel QR",
+    prompt:
+      "Register my departure from Manila to Singapore on 2026-08-28 at 09:30, flight PR507",
+    icon: CalendarDays,
+  },
+  {
+    label: "Build starter pack",
+    prompt: "Prepare my employment starter pack",
+    icon: Briefcase,
+  },
+] as const;
 
 function latestMessageId(messages: Msg[]) {
   return messages.reduce((latest, message) => Math.max(latest, message.id), 0);
@@ -158,6 +195,7 @@ export default function AgentPage() {
   const bottomRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
+  const composerRef = useRef<HTMLTextAreaElement>(null);
   const scrollFrameRef = useRef<number | null>(null);
   const agentTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   const agentRequestRef = useRef<AbortController | null>(null);
@@ -423,8 +461,13 @@ export default function AgentPage() {
         agentTimersRef.current.push(
           setTimeout(deliver, elapsed + 1100)
         );
-      } catch {
+      } catch (error) {
         if (requestController.signal.aborted) return;
+
+        const safeMessage =
+          error instanceof Error && error.message.trim()
+            ? error.message.trim()
+            : "The government service request failed.";
 
         setAgentProgress(null);
         setMessages((current) => [
@@ -432,7 +475,7 @@ export default function AgentPage() {
           {
             id: ++idRef.current,
             role: "agent",
-            text: "I couldn’t complete that request right now. **Please try again in a moment.**",
+            text: `I couldn’t complete that request. **${safeMessage}**`,
           },
         ]);
         recordAuditEvent({
@@ -492,6 +535,18 @@ export default function AgentPage() {
     void playSound("interaction.confirm");
     void send(undefined, pendingUploads);
   }, [busy, input, pendingUploads, playSound, send]);
+
+  const fillDemoPrompt = useCallback(
+    (prompt: string) => {
+      setInput(prompt);
+      void playSound("interaction.subtle");
+      requestAnimationFrame(() => {
+        composerRef.current?.focus();
+        composerRef.current?.setSelectionRange(prompt.length, prompt.length);
+      });
+    },
+    [playSound],
+  );
 
   const sendRef = useRef(send);
   useEffect(() => {
@@ -569,6 +624,35 @@ export default function AgentPage() {
               </p>
               <div className="animate-fade-up delay-300 mt-6">
                 <TodayChip />
+              </div>
+              <div className="animate-fade-up delay-400 relative top-16 mt-7 w-full max-w-xl sm:top-20">
+                <p className="font-pixel text-[9px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+                  Try a demo
+                </p>
+                <div className="mt-3 flex flex-wrap justify-center gap-2">
+                  {DEMO_PROMPTS.map((demo, index) => {
+                    const Icon = demo.icon;
+                    return (
+                      <SquircleButton
+                        key={demo.label}
+                        type="button"
+                        cornerRadius={16}
+                        onClick={() => fillDemoPrompt(demo.prompt)}
+                        aria-label={`Fill composer with: ${demo.prompt}`}
+                        title={demo.prompt}
+                        style={{ animationDelay: `${400 + index * 60}ms` }}
+                        className="animate-card-in group flex min-h-10 cursor-pointer items-center gap-2 rounded-2xl bg-white px-3 py-2 text-left text-[11.5px] font-semibold text-slate-600 shadow-[0_0_0_1px_oklch(0_0_0/0.06),0_7px_18px_-14px_oklch(0_0_0/0.45)] transition-[background-color,color,box-shadow,transform] duration-150 ease-out hover:bg-[#f4f8ff] hover:text-[#0a4f9e] hover:shadow-[0_0_0_1px_rgba(10,79,158,0.12),0_10px_22px_-14px_rgba(6,61,125,0.5)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0a4f9e]/35 active:scale-[0.96]"
+                      >
+                        <Icon
+                          size={14}
+                          strokeWidth={1.9}
+                          className="shrink-0 text-[#0a4f9e]/70 transition-colors duration-150 group-hover:text-[#0a4f9e]"
+                        />
+                        <span>{demo.label}</span>
+                      </SquircleButton>
+                    );
+                  })}
+                </div>
               </div>
             </div>
           ) : (
@@ -721,6 +805,7 @@ export default function AgentPage() {
               </div>
             )}
             <textarea
+              ref={composerRef}
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => {
@@ -807,7 +892,7 @@ export default function AgentPage() {
             </div>
           </Squircle>
         </Squircle>
-        <div className="mx-auto mt-3 flex max-w-2xl flex-wrap items-center justify-center gap-x-4 gap-y-2 text-[12px] text-slate-400">
+        <div className="mx-auto mt-3 hidden max-w-2xl flex-wrap items-center justify-center gap-x-4 gap-y-2 text-[12px] text-slate-400 sm:flex">
           <a
             href="mailto:support@e.gov.ph"
             className="inline-flex cursor-pointer items-center gap-1.5 transition hover:text-[#0a4f9e]"
@@ -1517,7 +1602,167 @@ function dateTile(date: string) {
   return match ? { mon: match[1].slice(0, 3), day: match[2] } : null;
 }
 
+const BUDGET_BAR_TONES = [
+  "bg-[#0a4f9e]",
+  "bg-[#2f7dd1]",
+  "bg-[#4ca7d8]",
+  "bg-[#f0b429]",
+  "bg-[#e7763c]",
+];
+
+function compactBudgetMetric(value: string) {
+  if (!value.startsWith("₱")) return value;
+  const amount = Number(value.slice(1).replaceAll(",", ""));
+  if (!Number.isFinite(amount) || Math.abs(amount) < 1_000_000_000) {
+    return value;
+  }
+  return new Intl.NumberFormat("en-PH", {
+    style: "currency",
+    currency: "PHP",
+    notation: "compact",
+    maximumFractionDigits: 2,
+  }).format(amount);
+}
+
+function BudgetCard({ card }: { card: Extract<Card, { kind: "budget" }> }) {
+  const [activeIndex, setActiveIndex] = useState(0);
+  const maxValue = Math.max(1, ...card.series.map((item) => item.value));
+  const active = card.series[activeIndex] ?? card.series[0];
+
+  return (
+    <Squircle
+      cornerRadius={18}
+      className="max-w-xl overflow-hidden rounded-[18px] bg-white shadow-[0_22px_54px_-30px_rgba(6,61,125,0.48)]"
+    >
+      <div className="relative overflow-hidden bg-[linear-gradient(135deg,#063d7d_0%,#0a62ad_58%,#238bc2_100%)] px-5 py-5 text-white">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_88%_12%,rgba(255,255,255,0.2),transparent_36%)]" />
+        <div className="relative flex items-start gap-3">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/14 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.14)]">
+            <BarChart3 size={20} />
+          </span>
+          <div className="min-w-0">
+            <div className="font-pixel text-[8.5px] uppercase tracking-[0.18em] text-white/65">
+              Live public budget data
+            </div>
+            <div className="mt-1 text-[20px] font-semibold leading-tight">
+              {card.title}
+            </div>
+            <div className="mt-1 text-[12px] leading-snug text-white/70">
+              {card.subtitle}
+            </div>
+          </div>
+          <span className="font-pixel ml-auto shrink-0 rounded-full bg-emerald-300/16 px-2.5 py-1 text-[8px] uppercase tracking-[0.14em] text-emerald-100">
+            Live
+          </span>
+        </div>
+
+        <div className="relative mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+          {card.metrics.map((metric, index) => {
+            const displayValue = compactBudgetMetric(metric.value);
+            return (
+              <div
+                key={metric.label}
+                style={{ animationDelay: `${80 + index * 65}ms` }}
+                className="animate-result-in rounded-xl bg-white/10 px-3 py-2.5 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)]"
+              >
+                <div className="font-pixel text-[7.5px] uppercase tracking-[0.13em] text-white/55">
+                  {metric.label}
+                </div>
+                <div
+                  title={metric.value}
+                  className="mt-1 truncate text-[12px] font-semibold tabular-nums text-white"
+                >
+                  {displayValue}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="px-5 py-5">
+        <div className="flex items-end justify-between gap-3">
+          <div>
+            <FieldLabel>Interactive comparison</FieldLabel>
+            <div className="mt-1 text-[11px] text-slate-400">
+              Hover, focus, or select a bar to inspect it
+            </div>
+          </div>
+          <span className="font-pixel rounded-full bg-[#0a4f9e]/[0.06] px-2.5 py-1 text-[7.5px] uppercase tracking-[0.12em] text-[#0a4f9e]">
+            {card.series.length} points
+          </span>
+        </div>
+
+        <div className="mt-4 space-y-2.5" role="group" aria-label={`${card.title} chart`}>
+          {card.series.map((item, index) => {
+            const activeItem = index === activeIndex;
+            const width = `${Math.max(4, (item.value / maxValue) * 100)}%`;
+            return (
+              <button
+                key={`${item.label}-${index}`}
+                type="button"
+                aria-pressed={activeItem}
+                aria-label={`${item.label}: ${item.valueLabel}`}
+                onMouseEnter={() => setActiveIndex(index)}
+                onFocus={() => setActiveIndex(index)}
+                onClick={() => setActiveIndex(index)}
+                className={`group w-full cursor-pointer rounded-xl px-3 py-2.5 text-left transition-[background-color,box-shadow] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0a4f9e]/25 ${
+                  activeItem
+                    ? "bg-[#f3f7fc] shadow-[0_10px_24px_-22px_rgba(6,61,125,0.55)]"
+                    : "hover:bg-slate-50"
+                }`}
+              >
+                <span className="flex items-center justify-between gap-3">
+                  <span className="truncate text-[11.5px] font-medium text-slate-600">
+                    {item.label}
+                  </span>
+                  <span className="shrink-0 text-[11px] font-semibold tabular-nums text-slate-700">
+                    {item.valueLabel}
+                  </span>
+                </span>
+                <span className="mt-2 block h-2 overflow-hidden rounded-full bg-slate-100">
+                  <span
+                    className={`animate-budget-bar block h-full rounded-full ${BUDGET_BAR_TONES[index % BUDGET_BAR_TONES.length]}`}
+                    style={{ width, animationDelay: `${180 + index * 85}ms` }}
+                  />
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        {active && (
+          <div className="mt-4 min-h-16 rounded-xl bg-[#0a4f9e]/[0.045] px-4 py-3" aria-live="polite">
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-[12px] font-semibold text-[#0a4f9e]">
+                {active.label}
+              </span>
+              <span className="font-mono text-[11px] font-semibold tabular-nums text-slate-600">
+                {active.valueLabel}
+              </span>
+            </div>
+            <p className="mt-1 text-[10.5px] leading-relaxed text-slate-400">
+              {active.detail || "Official amount returned by DBM Compass."}
+            </p>
+          </div>
+        )}
+      </div>
+
+      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 bg-[#fafcff] px-5 py-3">
+        <span className="font-pixel text-[7.5px] uppercase tracking-[0.13em] text-slate-400">
+          Source · {card.source}
+        </span>
+        <span className="text-[10px] text-slate-400">Retrieved {card.retrievedAt}</span>
+      </div>
+    </Squircle>
+  );
+}
+
 function ServiceCard({ card }: { card: Card }) {
+  if (card.kind === "budget") {
+    return <BudgetCard card={card} />;
+  }
+
   if (card.kind === "employmentPack") {
     return (
       <Squircle cornerRadius={16} className="max-w-xl overflow-hidden rounded-2xl bg-white shadow-[0_18px_44px_-26px_rgba(6,61,125,0.42)]">
@@ -1697,7 +1942,7 @@ function ServiceCard({ card }: { card: Card }) {
           </div>
 
           <div className="mt-4 flex items-center justify-between gap-3">
-            <FieldLabel>Response desks selected</FieldLabel>
+            <FieldLabel>{card.routingLabel ?? "Response desks selected"}</FieldLabel>
             <span className="font-pixel text-[8px] uppercase tracking-[0.12em] text-emerald-600">
               Duplicate routing prevented
             </span>
@@ -1738,7 +1983,7 @@ function ServiceCard({ card }: { card: Card }) {
             <Check size={28} strokeWidth={3.2} className="shrink-0 text-white" />
             <div className="min-w-0">
               <div className="font-pixel text-[9px] uppercase tracking-[0.18em] text-white/70">
-                eGovPH coordinated response
+                eGovPH eReport
               </div>
               <div className="mt-1 text-[21px] font-semibold leading-tight">
                 {card.title}
@@ -1770,7 +2015,9 @@ function ServiceCard({ card }: { card: Card }) {
 
           <div className="mt-4 flex items-center gap-2">
             <Zap size={14} className="text-emerald-600" />
-            <FieldLabel>Four desks dispatched simultaneously</FieldLabel>
+            <FieldLabel>
+              {card.statusLabel ?? "Four desks dispatched simultaneously"}
+            </FieldLabel>
           </div>
           <div className="mt-2">
             {card.responders.map((responder, index) => (
@@ -1823,7 +2070,7 @@ function ServiceCard({ card }: { card: Card }) {
       <CardShell
         icon={<AgencySeal label="eGov Pay" size={20} />}
         title={card.title}
-        tag="Secure"
+        tag={card.environment === "TEST" ? "Test mode" : "Secure"}
       >
         <div className="px-5 py-4">
           <div className="flex items-center gap-3">
@@ -1866,15 +2113,36 @@ function ServiceCard({ card }: { card: Card }) {
           <div className="mt-3 flex items-start gap-2.5 bg-[#eef6ff] px-3.5 py-3 text-[12px] leading-relaxed text-[#0a4f9e]">
             <ShieldCheck size={15} className="mt-0.5 shrink-0" />
             <span>
-              Payment details are encrypted and require your authorization.
+              {card.environment === "TEST"
+                ? "Test checkout only · no live financial network is used."
+                : "Payment details are encrypted and require your authorization."}
             </span>
           </div>
+          {card.checkoutUrl && (
+            <a
+              href={card.checkoutUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-3 flex min-h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-[#0a4f9e] px-4 text-[12.5px] font-semibold text-white shadow-[0_10px_24px_-14px_rgba(6,61,125,0.75)] transition-[background-color,box-shadow,transform] duration-150 hover:bg-[#063d7d] hover:shadow-[0_14px_28px_-14px_rgba(6,61,125,0.85)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0a4f9e]/35 active:scale-[0.98]"
+            >
+              Open eGovPay test checkout
+              <ExternalLink size={14} />
+            </a>
+          )}
           <div className="mt-3 flex items-center justify-between gap-3 text-[10.5px] text-slate-400">
             <span>Payment reference</span>
             <span className="truncate font-mono font-medium text-slate-500">
               {card.reference}
             </span>
           </div>
+          {card.providerReference && (
+            <div className="mt-1.5 flex items-center justify-between gap-3 text-[10.5px] text-slate-400">
+              <span>eGovPay reference</span>
+              <span className="truncate font-mono font-medium text-slate-500">
+                {card.providerReference}
+              </span>
+            </div>
+          )}
         </div>
       </CardShell>
     );

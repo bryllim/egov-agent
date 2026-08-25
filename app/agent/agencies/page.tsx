@@ -66,6 +66,20 @@ const AGENCIES: Agency[] = [
     connected: true,
   },
   {
+    label: "eMessage",
+    name: "eMessage",
+    desc: "Consent-based government SMS notifications",
+    connected: true,
+    fallback: { initials: "SMS", color: "#0a4f9e" },
+  },
+  {
+    label: "DBM Compass",
+    name: "DBM Compass",
+    desc: "Public appropriations and budget-execution data",
+    connected: true,
+    fallback: { initials: "DBM", color: "#173f73" },
+  },
+  {
     label: "Pag-IBIG",
     name: "Pag-IBIG Fund",
     desc: "Savings, MP2 & housing loans",

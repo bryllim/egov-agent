@@ -59,6 +59,20 @@ export type Card = CardBase &
         qr?: { label: string; value: string };
       }
     | {
+        kind: "budget";
+        title: string;
+        subtitle: string;
+        metrics: { label: string; value: string }[];
+        series: {
+          label: string;
+          value: number;
+          valueLabel: string;
+          detail?: string;
+        }[];
+        source: string;
+        retrievedAt: string;
+      }
+    | {
         kind: "employmentPack";
         title: string;
         subtitle: string;
@@ -83,6 +97,10 @@ export type Card = CardBase &
         lineItems: PaymentLineItem[];
         total: string;
         method: string;
+        checkoutUrl?: string;
+        transactionUuid?: string;
+        providerReference?: string;
+        environment?: string;
         action: string;
       }
     | {
@@ -109,6 +127,7 @@ export type Card = CardBase &
         summary: string;
         evidence: string;
         responders: EReportResponder[];
+        routingLabel?: string;
         action: string;
       }
     | {
@@ -119,9 +138,9 @@ export type Card = CardBase &
         incident: string;
         location: string;
         responders: EReportResponder[];
+        statusLabel?: string;
         eta: string;
         action: string;
-        print: PrintKind;
       }
     | {
         kind: "ltoViolation";
@@ -220,10 +239,13 @@ export const THINKING_DELAY_MS = 5000;
 /* ----------------------------- scripted brain ----------------------------- */
 
 export const SUGGESTIONS = [
+  "Show the 2026 DBM SAAODB summary",
+  "Show the latest 5 SARO records",
   "Register my eTravel departure",
   "Start a business in Mandaluyong",
   "Request my PSA birth certificate",
   "File a flooding eReport",
+  "Prepare an eMessage test SMS",
   "Renew my passport",
   "Check my SSS contributions",
 ];

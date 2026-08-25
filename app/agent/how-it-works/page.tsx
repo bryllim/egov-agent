@@ -1341,7 +1341,7 @@ export default function HowItWorksPage() {
                   Production architecture
                 </span>
                 <span className="font-pixel rounded-full bg-[#edf5ff] px-3 py-1.5 text-[9px] font-bold uppercase tracking-[0.15em] text-[#0a4f9e]">
-                  Judge review
+                  View presentation
                 </span>
               </div>
               <h1 className="mt-4 max-w-3xl text-balance text-[30px] font-semibold leading-[1.08] tracking-tight text-slate-900 sm:text-[38px]">
@@ -1367,7 +1367,7 @@ export default function HowItWorksPage() {
                 className="bg-brand-gradient mt-5 inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl px-4 text-[12px] font-semibold text-white shadow-[0_14px_28px_-20px_rgba(6,61,125,0.72)] transition-[filter,scale] duration-150 ease-out hover:brightness-105 active:scale-[0.96]"
               >
                 <Play size={15} fill="currentColor" />
-                Open judge presentation
+                View presentation
               </SquircleButton>
             </header>
 
