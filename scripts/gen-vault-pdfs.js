@@ -1,4 +1,5 @@
 /* Hand-rolled single-page PDFs (no deps) for the demo document vault. */
+/* eslint-disable @typescript-eslint/no-require-imports */
 const fs = require("fs");
 const path = require("path");
 
@@ -15,7 +16,7 @@ const BILL_PERIOD = `${MON(_last)} 01 - ${DMY(_lastEnd)}`;
 const BILL_DATE = DMY(_first);
 const DUE_DATE = DMY(_due);
 const TODAY = DMY(_now);
-const OUT = "/Users/bryllim/Developer/egov-agent/public/vault";
+const OUT = path.resolve(__dirname, "../public/vault");
 fs.mkdirSync(OUT, { recursive: true });
 
 function esc(s) {
@@ -59,8 +60,8 @@ function buildPdf(commands) {
     "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
     "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 5 0 R /F2 6 0 R >> >> /Contents 4 0 R >>",
     `<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`,
-    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
-    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>",
+    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>",
+    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>",
   ];
   let pdf = "%PDF-1.4\n";
   const offsets = [];
@@ -101,7 +102,7 @@ const psa = [
   GRAY(0.45),
   CT(624, 8, "F1", "(SECURITY PAPER - CERTIFIED TRANSCRIPT FROM THE CIVIL REGISTER)"),
   GRAY(0),
-  ...field(80, 580, "Full name of child", "LIM, BRYL KEZTER", 13),
+  ...field(80, 580, "Full name of child", "DELA PEÑA III, JOSE CRUZ", 13),
   ...field(80, 530, "Sex", "MALE"),
   ...field(250, 530, "Date of birth", "MARCH 8, 1998"),
   ...field(80, 480, "Place of birth", "MANDALUYONG CITY, METRO MANILA, PHILIPPINES"),
@@ -140,7 +141,7 @@ const meralco = [
   GRAY(0.4),
   T(400, 706, 8, "F1", `Billing month: ${BILL_MONTH}`),
   GRAY(0),
-  ...field(60, 660, "Account name", "BRYL KEZTER LIM", 12),
+  ...field(60, 660, "Account name", "Jose Cruz Dela Peña III", 12),
   ...field(60, 612, "Service address", "482 MAYSILO CIRCLE, BRGY. PLAINVIEW, MANDALUYONG CITY"),
   ...field(60, 564, "Account number", "1234-5678-9012"),
   ...field(300, 564, "Meter number", "34MX58812"),
@@ -187,7 +188,7 @@ const brgy = [
   LINE(70, 650, 542, 650),
   CT(612, 16, "F2", "BARANGAY CLEARANCE"),
   T(80, 560, 10, "F1", "TO WHOM IT MAY CONCERN:"),
-  T(80, 528, 10, "F1", "This is to certify that BRYL KEZTER LIM, of legal age, Filipino,"),
+  T(80, 528, 10, "F1", "This is to certify that Jose Cruz Dela Peña III, of legal age, Filipino,"),
   T(80, 510, 10, "F1", "and a bona fide resident of 482 Maysilo Circle, Brgy. Plainview,"),
   T(80, 492, 10, "F1", "Mandaluyong City, is known to be of good moral character and has"),
   T(80, 474, 10, "F1", "no derogatory record on file in this Barangay."),
@@ -204,7 +205,17 @@ const brgy = [
   GRAY(0),
 ];
 
-fs.writeFileSync(path.join(OUT, "psa-birth-certificate.pdf"), buildPdf(psa));
-fs.writeFileSync(path.join(OUT, "meralco-bill.pdf"), buildPdf(meralco));
-fs.writeFileSync(path.join(OUT, "barangay-clearance.pdf"), buildPdf(brgy));
+const requestedDocuments = new Set(process.argv.slice(2));
+const documents = {
+  "psa-birth-certificate": psa,
+  "meralco-bill": meralco,
+  "barangay-clearance": brgy,
+};
+
+for (const [name, content] of Object.entries(documents)) {
+  if (requestedDocuments.size === 0 || requestedDocuments.has(name)) {
+    fs.writeFileSync(path.join(OUT, `${name}.pdf`), buildPdf(content));
+  }
+}
+
 console.log("done");

@@ -3,7 +3,6 @@
 /* Persistent shell for every /agent route: owns the sidebar, the session user,
    and the conversation list so they survive navigation between pages. */
 
-import Image from "next/image";
 import {
   createContext,
   useCallback,
@@ -11,7 +10,6 @@ import {
   useEffect,
   useMemo,
   useState,
-  useSyncExternalStore,
 } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -32,15 +30,8 @@ import {
 import { AgentMark, AgentWordmark } from "@/components/brand";
 import { PrivacyNoticeModal } from "@/components/privacy-notice-modal";
 import { SquircleButton } from "@/components/squircle";
-import {
-  DEMO_PROFILE,
-  getServerSessionUserSnapshot,
-  getSessionUserSnapshot,
-  readDemoUser,
-  subscribeToSessionStorage,
-  type Conversation,
-  type User,
-} from "./brain";
+import { UserAvatar } from "@/components/user-avatar";
+import { type Conversation, type User } from "./brain";
 
 type AgentShellContextValue = {
   user: User;
@@ -75,15 +66,16 @@ export function useAgentShell() {
   return ctx;
 }
 
-export function AgentShell({ children }: { children: React.ReactNode }) {
+export function AgentShell({
+  children,
+  initialUser,
+}: {
+  children: React.ReactNode;
+  initialUser: User;
+}) {
   const router = useRouter();
   const pathname = usePathname();
-  const sessionUser = useSyncExternalStore(
-    subscribeToSessionStorage,
-    getSessionUserSnapshot,
-    getServerSessionUserSnapshot
-  );
-  const user = useMemo(() => readDemoUser(sessionUser), [sessionUser]);
+  const user = initialUser;
   const [storedConversations, setStoredConversations] = useState<
     Conversation[]
   >([]);
@@ -107,12 +99,6 @@ export function AgentShell({ children }: { children: React.ReactNode }) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [privacyNoticeOpen, setPrivacyNoticeOpen] = useState(false);
-
-  useEffect(() => {
-    if (!readDemoUser(sessionStorage.getItem("egov-user"))) {
-      router.replace("/");
-    }
-  }, [router, sessionUser]);
 
   useEffect(() => {
     if (!mobileSidebarOpen) return;
@@ -145,9 +131,11 @@ export function AgentShell({ children }: { children: React.ReactNode }) {
 
   const signOut = () => {
     setMobileSidebarOpen(false);
-    sessionStorage.removeItem("egov-user");
     window.speechSynthesis?.cancel();
-    router.push("/");
+    void fetch("/api/auth/egov/logout", { method: "POST" }).finally(() => {
+      router.replace("/");
+      router.refresh();
+    });
   };
 
   const openPrivacyNotice = useCallback(() => {
@@ -158,8 +146,6 @@ export function AgentShell({ children }: { children: React.ReactNode }) {
     () => setPrivacyNoticeOpen(false),
     [],
   );
-
-  if (!user) return null;
 
   return (
     <AgentShellContext.Provider
@@ -398,12 +384,10 @@ function SidebarContent({
             pathname.startsWith("/agent/profile") ? "bg-[#f6f9ff]" : ""
           } ${expanded ? "justify-start gap-3 px-3" : ""}`}
         >
-          <Image
-            src={user.photoSrc ?? DEMO_PROFILE.photoSrc}
-            alt={user.name}
-            width={40}
-            height={40}
-            className="h-10 w-10 shrink-0 rounded-full object-cover ring-2 ring-[#0a4f9e]/10 transition group-hover:ring-[#0a4f9e]/30"
+          <UserAvatar
+            src={user.photoSrc}
+            name={user.name}
+            className="h-10 w-10 shrink-0 rounded-full object-cover ring-2 ring-[#0a4f9e]/10 transition-[box-shadow] duration-150 group-hover:ring-[#0a4f9e]/30"
           />
           {expanded && (
             <>

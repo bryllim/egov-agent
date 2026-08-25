@@ -327,6 +327,11 @@ body {
   border: 1px solid rgba(11, 22, 36, 0.09);
 }
 
+/* The official widget owns the modal; eGov Agent provides the squircle trigger. */
+#egov-login .egov-root > button {
+  display: none !important;
+}
+
 /* Hide scrollbar but keep scrolling */
 .scrollbar-subtle::-webkit-scrollbar {
   width: 6px;

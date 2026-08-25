@@ -56,7 +56,7 @@ const INITIAL_MESSAGES: Message[] = [
   {
     id: 1,
     author: "agent",
-    text: "Mabuhay, Bryl! 👋 I’m your official eGov Agent. I can help you access Philippine government services right here on Viber.",
+    text: "Mabuhay, Jose! 👋 I’m your official eGov Agent. I can help you access Philippine government services right here on Viber.",
     time: "10:32 AM",
   },
   {
@@ -476,7 +476,7 @@ export function ViberDemo() {
     }
     if (value.includes("sss") || value.includes("contribution")) {
       return {
-        text: `Here’s your latest SSS contribution summary, Bryl. Your employer has posted all contributions through ${D.sssMonth1} — you’re fully up to date with 87 total posted contributions.`,
+        text: `Here’s your latest SSS contribution summary, Jose. Your employer has posted all contributions through ${D.sssMonth1} — you’re fully up to date with 87 total posted contributions.`,
         card: "sss",
       };
     }
@@ -597,11 +597,11 @@ export function ViberDemo() {
           <button
             type="button"
             aria-label="Your profile"
-            title="Bryl Kezter Lim"
-            onClick={() => showToast("Signed in as Bryl Kezter Lim")}
+            title="Jose Cruz Dela Peña III"
+            onClick={() => showToast("Signed in as Jose Cruz Dela Peña III")}
             className="relative h-10 w-10 cursor-pointer overflow-hidden rounded-full shadow-[0_5px_14px_oklch(0_0_0/0.4)] outline outline-1 outline-white/15 transition-transform duration-200 active:scale-[0.96]"
           >
-            <Image src="/brylphoto.jpg" alt="Bryl Kezter Lim" fill sizes="40px" className="object-cover" />
+            <Image src="/jose-profile.jpg" alt="Jose Cruz Dela Peña III" fill sizes="40px" className="object-cover" />
           </button>
         </div>
       </aside>
@@ -736,9 +736,9 @@ export function ViberDemo() {
                 message={message}
                 onPreviewStatement={() => {
                   previewForm("sss-statement", {
-                    name: "Bryl Kezter Lim",
-                    firstName: "Bryl",
-                    pcn: "6302-6431-0891-2530",
+                    name: "Jose Cruz Dela Peña III",
+                    firstName: "Jose",
+                    pcn: "Not shared by eGovPH",
                   });
                   showToast("Opening your SSS contribution statement");
                 }}
@@ -862,10 +862,10 @@ export function ViberDemo() {
         <div className="flex items-center justify-between bg-[oklch(0.2_0.025_294)] p-5 text-white shadow-[inset_0_-1px_0_oklch(1_0_0/0.1)]">
           <div className="flex items-center gap-3">
             <div className="relative h-11 w-11 overflow-hidden rounded-full outline outline-2 outline-white/70">
-              <Image src="/brylphoto.jpg" alt="Bryl Kezter Lim" fill sizes="44px" className="object-cover" />
+              <Image src="/jose-profile.jpg" alt="Jose Cruz Dela Peña III" fill sizes="44px" className="object-cover" />
             </div>
             <div>
-              <p className="text-[14px] font-semibold">Bryl Kezter Lim</p>
+              <p className="text-[14px] font-semibold">Jose Cruz Dela Peña III</p>
               <p className="mt-0.5 text-[11px] text-white/70">Viber Desktop</p>
             </div>
           </div>

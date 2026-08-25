@@ -193,7 +193,18 @@ export type Msg = {
   uploads?: UserUpload[];
 };
 
-export type User = { name: string; firstName: string; pcn: string; photoSrc?: string };
+export type User = {
+  name: string;
+  firstName: string;
+  pcn: string;
+  photoSrc?: string;
+  birthDate?: string;
+  sex?: string;
+  nationality?: string;
+  mobile?: string;
+  email?: string;
+  address?: string;
+};
 
 export type Conversation = { id: string; title: string; messages: Msg[] };
 
@@ -205,37 +216,6 @@ export type AgentActivity = {
 };
 
 export const THINKING_DELAY_MS = 5000;
-
-export const DEMO_PROFILE = {
-  name: "Bryl Kezter Lim",
-  firstName: "Bryl",
-  photoSrc: "/brylphoto.jpg",
-};
-
-export function subscribeToSessionStorage(onStoreChange: () => void) {
-  if (typeof window === "undefined") return () => {};
-  window.addEventListener("storage", onStoreChange);
-  return () => window.removeEventListener("storage", onStoreChange);
-}
-
-export function getSessionUserSnapshot() {
-  if (typeof window === "undefined") return null;
-  return sessionStorage.getItem("egov-user");
-}
-
-export function getServerSessionUserSnapshot() {
-  return null;
-}
-
-export function readDemoUser(raw: string | null): User | null {
-  if (!raw) return null;
-
-  try {
-    return { ...(JSON.parse(raw) as User), ...DEMO_PROFILE };
-  } catch {
-    return null;
-  }
-}
 
 /* ----------------------------- scripted brain ----------------------------- */
 
@@ -279,8 +259,8 @@ export const VAULT_FILES = {
   },
   photo: {
     name: "2x2 ID Photo.jpg",
-    href: "/vault/2x2.jpg",
-    preview: "/vault/2x2.jpg",
+    href: "/vault/profile_2x2.jpg",
+    preview: "/vault/profile_2x2.jpg",
   },
   brgyClearance: {
     name: "Barangay Clearance.pdf",
@@ -869,17 +849,17 @@ export function agentPlan(input: string, user: User): Plan {
           "spark",
           "Sending to your registered email",
           "eGov Notify",
-          "Sent to bry••••@gmail.com",
+          "Sent to jos••••@yopmail.com",
           1100
         ),
       ],
-      text: `Done! Your **certified Member Data Record** is signed and on its way to **bry••••@gmail.com**. It carries a **QR code** that any employer or hospital can scan to verify it's authentic — no more falling in line at a PhilHealth office.`,
+      text: `Done! Your **certified Member Data Record** is signed and on its way to **jos••••@yopmail.com**. It carries a **QR code** that any employer or hospital can scan to verify it's authentic — no more falling in line at a PhilHealth office.`,
       card: {
         kind: "record",
         title: "PhilHealth Certified MDR — Issued",
         fields: [
           { label: "Document no.", value: D.mdrRef },
-          { label: "Sent to", value: "bry••••@gmail.com" },
+          { label: "Sent to", value: "jos••••@yopmail.com" },
           { label: "Signature", value: "PhilHealth e-seal + QR" },
           { label: "Status", value: "Delivered" },
         ],
@@ -910,7 +890,7 @@ export function agentPlan(input: string, user: User): Plan {
           "spark",
           "Sending your exam access link",
           "eGov Notify",
-          "Link sent to bry••••@gmail.com",
+          "Link sent to jos••••@yopmail.com",
           1100
         ),
       ],

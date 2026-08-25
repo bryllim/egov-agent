@@ -79,8 +79,14 @@ type OverlaySpec = {
 };
 
 function overlaySpec(kind: PrintKind, user: PrintUser): OverlaySpec | null {
-  const upper = user.name.toUpperCase();
-  const [first = "BRYL", middle = "KEZTER", last = "LIM"] = upper.split(" ");
+  const nameParts = user.name.toUpperCase().trim().split(/\s+/).filter(Boolean);
+  const suffix = /^(?:JR\.?|SR\.?|II|III|IV|V|VI)$/.test(nameParts.at(-1) ?? "")
+    ? nameParts.pop() ?? ""
+    : "";
+  const first = nameParts.shift() || "JOSE";
+  const middle = nameParts.length > 1 ? nameParts.shift() ?? "" : "";
+  const last = nameParts.join(" ") || "DELA PEÑA";
+  const lastWithSuffix = [last, suffix].filter(Boolean).join(" ");
 
   if (kind === "dfa-form") {
     return {
@@ -89,7 +95,7 @@ function overlaySpec(kind: PrintKind, user: PrintUser): OverlaySpec | null {
       fields: [
         { x: 13, y: 16.4, text: last },
         { x: 51.8, y: 16.4, text: `${first} ${middle}` },
-        { x: 13, y: 20.9, text: "N/A" },
+        { x: 13, y: 20.9, text: suffix || "N/A" },
         { x: 51.8, y: 20.9, text: "MANDALUYONG CITY, PHILIPPINES" },
         { x: 14.5, y: 25.0, text: "MARCH" },
         { x: 31.5, y: 25.0, text: "8" },
@@ -102,7 +108,7 @@ function overlaySpec(kind: PrintKind, user: PrintUser): OverlaySpec | null {
         { x: 76.5, y: 37.0, text: "0917•••4482" },
         { x: 20.5, y: 38.5, text: "N/A" },
         { x: 74.5, y: 38.5, text: "N/A" },
-        { x: 19.5, y: 40.0, text: "BRY••••@GMAIL.COM" },
+        { x: 19.5, y: 40.0, text: "JOS••••@YOPMAIL.COM" },
         { x: 26.0, y: 41.5, text: "N/A" },
         { x: 18.5, y: 43.0, text: "N/A" },
         { x: 32.0, y: 44.5, text: "N/A" },
@@ -123,7 +129,7 @@ function overlaySpec(kind: PrintKind, user: PrintUser): OverlaySpec | null {
       fields: [
         { x: 64.6, y: 9.6, text: "080255184123", size: 1.3, spacing: 1.87 },
         { x: 59.9, y: 14.3, text: "✓", check: true },
-        { x: 14.5, y: 25.2, text: last },
+        { x: 14.5, y: 25.2, text: lastWithSuffix },
         { x: 38.0, y: 25.2, text: first },
         { x: 73.0, y: 25.2, text: middle },
         { x: 4.9, y: 35.3, text: "03", size: 1.3, spacing: 2.12 },
@@ -135,7 +141,7 @@ function overlaySpec(kind: PrintKind, user: PrintUser): OverlaySpec | null {
         { x: 29.7, y: 39.4, text: "✓", check: true },
         { x: 4.5, y: 48.3, text: "MANDALUYONG CITY, METRO MANILA", size: 1.15 },
         { x: 70.0, y: 52.0, text: "0917 ••• 4482", size: 1.2 },
-        { x: 70.0, y: 58.5, text: "BRY••••@GMAIL.COM", size: 1.15 },
+        { x: 70.0, y: 58.5, text: "JOS••••@YOPMAIL.COM", size: 1.15 },
         { x: 4.1, y: 79.4, text: "✓", check: true },
       ],
     };
@@ -146,7 +152,7 @@ function overlaySpec(kind: PrintKind, user: PrintUser): OverlaySpec | null {
       image: "/forms/lto-apl.png",
       title: "LTO Form 21 (APL) — Pre-filled",
       fields: [
-        { x: 4.0, y: 16.9, text: `${last}, ${first} ${middle}`, size: 1.25, spacing: 1.0 },
+        { x: 4.0, y: 16.9, text: `${last}, ${first} ${middle} ${suffix}`.trim(), size: 1.25, spacing: 1.0 },
         { x: 4.0, y: 19.3, text: "MANDALUYONG CITY, METRO MANILA", size: 1.2 },
         { x: 57.0, y: 19.3, text: "0917 ••• 4482", size: 1.2 },
         { x: 4.0, y: 21.6, text: "FILIPINO", size: 1.2 },
@@ -227,7 +233,7 @@ function generatedSpec(
   const personal = [
     { label: "Full name", value: user.name },
     { label: "PhilSys card number", value: user.pcn },
-    { label: "Email", value: "bry••••@gmail.com" },
+    { label: "Email", value: "jos••••@yopmail.com" },
     { label: "Mobile", value: "+63 917 ••• 4482" },
     { label: "Address", value: "Mandaluyong City, Metro Manila" },
   ];

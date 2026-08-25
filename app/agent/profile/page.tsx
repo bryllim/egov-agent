@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
@@ -19,24 +18,19 @@ import {
 import { AgencySeal } from "@/components/agency";
 import { useSoundEffects } from "@/components/sound-effects";
 import { Squircle } from "@/components/squircle";
+import { UserAvatar } from "@/components/user-avatar";
 import { useAgentShell } from "../shell";
-import { DEMO_PROFILE } from "../brain";
 
-const PERSONAL: { icon: React.ReactNode; label: string; value: string }[] = [
-  { icon: <UserIcon size={13} />, label: "Full legal name", value: "Bryl Kezter Lim" },
-  { icon: <CalendarDays size={13} />, label: "Date of birth", value: "March 8, 1998" },
-  { icon: <UserIcon size={13} />, label: "Sex", value: "Male" },
-  { icon: <UserIcon size={13} />, label: "Civil status", value: "Single" },
-  { icon: <ShieldCheck size={13} />, label: "Citizenship", value: "Filipino" },
-  { icon: <UserIcon size={13} />, label: "Blood type", value: "O+" },
-];
+function displayDate(value: string | undefined) {
+  if (!value) return "Not shared by eGovPH";
+  const date = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(date.valueOf())) return value;
+  return new Intl.DateTimeFormat("en-PH", { dateStyle: "long" }).format(date);
+}
 
-const CONTACT: { icon: React.ReactNode; label: string; value: string }[] = [
-  { icon: <Phone size={13} />, label: "Mobile number", value: "+63 917 ••• 4482" },
-  { icon: <Mail size={13} />, label: "Email address", value: "bry••••@gmail.com" },
-  { icon: <MapPin size={13} />, label: "Permanent address", value: "Mandaluyong City, Metro Manila" },
-  { icon: <BadgeCheck size={13} />, label: "eGov member since", value: "August 2023" },
-];
+function sharedValue(value: string | undefined) {
+  return value || "Not shared by eGovPH";
+}
 
 const RECORDS: {
   agency: string;
@@ -141,6 +135,17 @@ export default function ProfilePage() {
     setSoundEffectsEnabled,
     soundEffectsEnabled,
   } = useSoundEffects();
+  const personal: { icon: React.ReactNode; label: string; value: string }[] = [
+    { icon: <UserIcon size={13} />, label: "Full legal name", value: user.name },
+    { icon: <CalendarDays size={13} />, label: "Date of birth", value: displayDate(user.birthDate) },
+    { icon: <UserIcon size={13} />, label: "Sex", value: sharedValue(user.sex) },
+    { icon: <ShieldCheck size={13} />, label: "Citizenship", value: sharedValue(user.nationality) },
+  ];
+  const contact: { icon: React.ReactNode; label: string; value: string }[] = [
+    { icon: <Phone size={13} />, label: "Mobile number", value: sharedValue(user.mobile) },
+    { icon: <Mail size={13} />, label: "Email address", value: sharedValue(user.email) },
+    { icon: <MapPin size={13} />, label: "Permanent address", value: sharedValue(user.address) },
+  ];
 
   return (
     <div className="scrollbar-subtle flex-1 overflow-y-auto">
@@ -162,12 +167,10 @@ export default function ProfilePage() {
         {/* Identity header */}
         <Squircle asChild>
           <section className="animate-fade-up delay-100 mt-6 flex flex-col items-center gap-5 rounded-xl bg-white p-7 shadow-[0_18px_44px_-30px_rgba(6,61,125,0.3)] sm:flex-row sm:items-center">
-          <Image
-            src={user.photoSrc ?? DEMO_PROFILE.photoSrc}
-            alt={user.name}
-            width={84}
-            height={84}
-            className="h-[84px] w-[84px] shrink-0 rounded-full object-cover ring-4 ring-[#0a4f9e]/10"
+          <UserAvatar
+            src={user.photoSrc}
+            name={user.name}
+            className="h-[84px] w-[84px] shrink-0 rounded-full object-cover text-xl ring-4 ring-[#0a4f9e]/10"
           />
           <div className="min-w-0 flex-1 text-center sm:text-left">
             <h1 className="text-[24px] font-semibold tracking-tight">
@@ -196,7 +199,7 @@ export default function ProfilePage() {
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
           <SectionCard title="Personal information" delay="delay-200">
             <div className="space-y-4">
-              {PERSONAL.map((f) => (
+              {personal.map((f) => (
                 <InfoField key={f.label} {...f} />
               ))}
             </div>
@@ -204,7 +207,7 @@ export default function ProfilePage() {
 
           <SectionCard title="Contact & address" delay="delay-200">
             <div className="space-y-4">
-              {CONTACT.map((f) => (
+              {contact.map((f) => (
                 <InfoField key={f.label} {...f} />
               ))}
             </div>

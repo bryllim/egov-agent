@@ -9,7 +9,7 @@ endobj
 << /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 5 0 R /F2 6 0 R >> >> /Contents 4 0 R >>
 endobj
 4 0 obj
-<< /Length 2423 >>
+<< /Length 2431 >>
 stream
 0.9 g
 40 700 532 52 re f
@@ -20,12 +20,12 @@ BT /F1 8 Tf 60 706 Td (Manila Electric Company) Tj ET
 0 g
 BT /F2 12 Tf 400 718 Td (STATEMENT OF ACCOUNT) Tj ET
 0.4 g
-BT /F1 8 Tf 400 706 Td (Billing month: JUNE 2026) Tj ET
+BT /F1 8 Tf 400 706 Td (Billing month: JULY 2026) Tj ET
 0 g
 0.45 g
 BT /F1 7 Tf 60 660 Td (ACCOUNT NAME) Tj ET
 0 g
-BT /F2 12 Tf 60 646 Td (BRYL KEZTER LIM) Tj ET
+BT /F2 12 Tf 60 646 Td (Jose Cruz Dela Peña III) Tj ET
 0.45 g
 BT /F1 7 Tf 60 612 Td (SERVICE ADDRESS) Tj ET
 0 g
@@ -41,11 +41,11 @@ BT /F2 11 Tf 300 550 Td (34MX58812) Tj ET
 0.45 g
 BT /F1 7 Tf 60 516 Td (BILLING PERIOD) Tj ET
 0 g
-BT /F2 11 Tf 60 502 Td (JUN 01 - JUN 30, 2026) Tj ET
+BT /F2 11 Tf 60 502 Td (JUL 01 - JUL 31, 2026) Tj ET
 0.45 g
 BT /F1 7 Tf 300 516 Td (BILL DATE) Tj ET
 0 g
-BT /F2 11 Tf 300 502 Td (JUL 01, 2026) Tj ET
+BT /F2 11 Tf 300 502 Td (AUG 01, 2026) Tj ET
 0.6 w
 60 480 m 552 480 l S
 BT /F2 10 Tf 60 456 Td (BILLING SUMMARY) Tj ET
@@ -62,7 +62,7 @@ BT /F1 10 Tf 430 390 Td (PHP    483.74) Tj ET
 BT /F2 12 Tf 60 356 Td (TOTAL AMOUNT DUE) Tj ET
 BT /F2 12 Tf 430 356 Td (PHP 3,482.16) Tj ET
 BT /F1 10 Tf 60 334 Td (Due date:) Tj ET
-BT /F2 10 Tf 130 334 Td (JUL 12, 2026) Tj ET
+BT /F2 10 Tf 130 334 Td (AUG 12, 2026) Tj ET
 0.45 g
 BT /F1 7 Tf 60 290 Td (CONSUMPTION) Tj ET
 0 g
@@ -71,7 +71,7 @@ BT /F2 11 Tf 60 276 Td (214 kWh) Tj ET
 60 240 m 552 240 l S
 0.4 g
 BT /F1 8 Tf 60 220 Td (This statement serves as a valid proof of billing address.) Tj ET
-BT /F1 8 Tf 60 208 Td (Retrieved via eGov PH - Document Vault on JUL 07, 2026.) Tj ET
+BT /F1 8 Tf 60 208 Td (Retrieved via eGov PH - Document Vault on AUG 25, 2026.) Tj ET
 0 g
 0 g
 60 120 2 36 re f
@@ -110,10 +110,10 @@ BT /F1 7 Tf 60 106 Td (SOA-2026-06-1234567890) Tj ET
 endstream
 endobj
 5 0 obj
-<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>
 endobj
 6 0 obj
-<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>
 endobj
 xref
 0 7
@@ -122,10 +122,10 @@ xref
 0000000058 00000 n 
 0000000115 00000 n 
 0000000251 00000 n 
-0000002726 00000 n 
-0000002796 00000 n 
+0000002734 00000 n 
+0000002831 00000 n 
 trailer
 << /Size 7 /Root 1 0 R >>
 startxref
-2871
+2933
 %%EOF

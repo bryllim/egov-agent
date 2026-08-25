@@ -2,6 +2,9 @@
 
 This application is a hybrid proof of concept:
 
+- Citizen authentication uses the official eGovPH login widget and the real
+  eGov SSO sandbox token/profile exchange. Partner credentials stay on the
+  server and the local app session is stored in an encrypted HTTP-only cookie.
 - The AI understanding, government-service routing, response, and safe reasoning
   summary come directly from the Google Gemini API through the Vercel AI SDK.
 - Government agency records, payments, bookings, and document cards remain
@@ -13,8 +16,12 @@ This application is a hybrid proof of concept:
 ## Run the POC
 
 1. Create a Gemini API key in Google AI Studio.
-2. Copy `.env.example` to `.env.local` and set `GEMINI_API_KEY`.
-3. Install dependencies and run the app:
+2. Obtain an eGov SSO sandbox credential from the
+   [official developer portal](https://platforms.e.gov.ph/dashboard/api-catalogs/egov-sso).
+3. Copy `.env.example` to `.env.local`, set `GEMINI_API_KEY`, and fill the
+   `EGOV_SSO_*` values. Generate `EGOV_SESSION_SECRET` with at least 32 random
+   characters.
+4. Install dependencies and run the app:
 
 ```bash
 npm install
@@ -34,9 +41,22 @@ project before deployment. `GOOGLE_GENERATIVE_AI_API_KEY` is also supported as
 an alternative name. The `AI_MODEL` value remains configurable so the
 application can switch Gemini models without changing the agent code.
 
-Open [http://localhost:3000](http://localhost:3000), enter any 16-digit demo
-PhilSys number or use either demo sign-in button, then ask for any government
-service.
+Open [http://localhost:3000](http://localhost:3000), choose **Continue with
+eGovPH**, and sign in with one of the official sandbox identities shown by the
+widget. The widget obtains a single-use exchange code; the backend redeems it
+at `/api/token`, fetches the consented citizen profile from
+`/api/partner/sso_authentication`, and then establishes the local session.
+
+For the eGovPH in-app redirect mode, register this HTTPS callback with the
+platform team:
+
+```text
+https://your-domain.example/api/auth/egov/callback
+```
+
+During the hackathon, `EGOV_SSO_DEMO_MODE=true` exposes only the official
+sandbox test identities in the widget. Set it to `false` before a production
+handoff.
 
 ## How the hybrid flow works
 

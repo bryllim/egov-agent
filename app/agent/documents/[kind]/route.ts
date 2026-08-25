@@ -1,10 +1,11 @@
-import { DEMO_PROFILE } from "@/app/agent/brain";
+import { cookies } from "next/headers";
 import { type ETravelDetails } from "@/app/agent/ai-contract";
 import {
   buildFormHTML,
   PRINT_FILE_PREVIEWS,
   type PrintKind,
 } from "@/app/agent/forms";
+import { EGOV_SESSION_COOKIE, openEgovSession } from "@/lib/egov-session";
 
 function isPrintKind(value: string): value is PrintKind {
   return Object.hasOwn(PRINT_FILE_PREVIEWS, value);
@@ -15,6 +16,12 @@ export async function GET(
   { params }: { params: Promise<{ kind: string }> },
 ) {
   const { kind } = await params;
+  const cookieStore = await cookies();
+  const session = openEgovSession(cookieStore.get(EGOV_SESSION_COOKIE)?.value);
+
+  if (!session) {
+    return new Response("Authentication required.", { status: 401 });
+  }
 
   if (!isPrintKind(kind)) {
     return new Response("Document not found.", { status: 404 });
@@ -38,10 +45,7 @@ export async function GET(
       : undefined;
   const html = buildFormHTML(
     kind,
-    {
-      ...DEMO_PROFILE,
-      pcn: "6302-6431-0891-2530",
-    },
+    session.user,
     { eTravel }
   );
 

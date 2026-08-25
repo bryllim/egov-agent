@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef, useState, type DragEvent } from "react";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
@@ -165,6 +165,7 @@ export default function VaultPage() {
   const { playSound } = useSensoryUI();
   const [docs, setDocs] = useState<VaultDoc[]>(INITIAL_DOCS);
   const [usedBytes, setUsedBytes] = useState(INITIAL_USED);
+  const [isDragging, setIsDragging] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const addFiles = (list: FileList | null) => {
@@ -193,6 +194,12 @@ export default function VaultPage() {
     void playSound("notification.success");
   };
 
+  const handleDrop = (event: DragEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    setIsDragging(false);
+    addFiles(event.dataTransfer.files);
+  };
+
   return (
     <div className="scrollbar-subtle flex-1 overflow-y-auto">
       <div className="mx-auto w-full max-w-3xl px-6 py-8">
@@ -210,7 +217,7 @@ export default function VaultPage() {
           </button>
         </div>
 
-        <div className="animate-fade-up delay-100 mt-7 flex flex-wrap items-end justify-between gap-4">
+        <div className="animate-fade-up delay-100 mt-7">
           <div>
             <h1 className="text-[24px] font-semibold tracking-tight">Vault</h1>
             <p className="mt-1.5 max-w-xl text-[14px] leading-relaxed text-slate-500">
@@ -218,28 +225,51 @@ export default function VaultPage() {
               attaches a file after you approve it, then links it in the chat.
             </p>
           </div>
-          <button
-            type="button"
-            onClick={() => inputRef.current?.click()}
-            className="font-pixel flex min-h-11 shrink-0 cursor-pointer items-center gap-1.5 rounded-full bg-[#0a4f9e] pl-3.5 pr-3 text-[8.5px] uppercase tracking-[0.14em] text-white transition-[opacity,transform] duration-150 hover:opacity-90 active:scale-[0.96]"
-          >
-            <Upload size={10} />
-            Upload document
-          </button>
-          <input
-            ref={inputRef}
-            type="file"
-            multiple
-            hidden
-            onChange={(e) => {
-              addFiles(e.target.files);
-              e.target.value = "";
-            }}
-          />
         </div>
 
+        <button
+          type="button"
+          onClick={() => inputRef.current?.click()}
+          onDragEnter={(event) => {
+            event.preventDefault();
+            setIsDragging(true);
+          }}
+          onDragOver={(event) => event.preventDefault()}
+          onDragLeave={(event) => {
+            if (!event.currentTarget.contains(event.relatedTarget as Node)) {
+              setIsDragging(false);
+            }
+          }}
+          onDrop={handleDrop}
+          className={`animate-fade-up delay-200 mt-6 flex min-h-28 w-full cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed px-6 py-5 text-center transition-[background-color,border-color,box-shadow] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0a4f9e]/25 focus-visible:ring-offset-2 ${
+            isDragging
+              ? "border-[#0a4f9e] bg-[#0a4f9e]/[0.07] shadow-[0_14px_32px_-24px_rgba(6,61,125,0.55)]"
+              : "border-[#0a4f9e]/30 bg-white/50 hover:border-[#0a4f9e]/55 hover:bg-white"
+          }`}
+        >
+          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#0a4f9e]/[0.08] text-[#0a4f9e]">
+            <Upload size={17} strokeWidth={1.75} />
+          </span>
+          <span className="mt-2.5 text-[13.5px] font-semibold text-slate-700">
+            Drop documents here
+          </span>
+          <span className="mt-1 text-[12.5px] text-slate-400">
+            or click to choose files
+          </span>
+        </button>
+        <input
+          ref={inputRef}
+          type="file"
+          multiple
+          hidden
+          onChange={(event) => {
+            addFiles(event.target.files);
+            event.target.value = "";
+          }}
+        />
+
         {/* storage capacity */}
-        <Squircle className="animate-fade-up delay-200 mt-6 flex items-center gap-5 rounded-xl bg-white p-4 shadow-[0_18px_44px_-30px_rgba(6,61,125,0.3)]">
+        <Squircle className="animate-fade-up delay-300 mt-6 flex items-center gap-5 rounded-xl bg-white p-4 shadow-[0_18px_44px_-30px_rgba(6,61,125,0.3)]">
           <CapacityDonut usedBytes={usedBytes} />
           <div className="min-w-0">
             <div className="text-[13.5px] font-semibold text-slate-700">
@@ -256,7 +286,7 @@ export default function VaultPage() {
           </div>
         </Squircle>
 
-        <div className="animate-fade-up delay-200 mt-6 -mx-2 space-y-1">
+        <div className="animate-fade-up delay-300 mt-6 -mx-2 space-y-1">
           {docs.map((d, i) => (
             <DocRow key={`${d.name}-${i}`} doc={d} index={i} />
           ))}
