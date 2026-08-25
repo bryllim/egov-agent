@@ -164,14 +164,14 @@ const GLOSSARY = {
       "It rewards successful outcomes and prevents teams from optimizing for short conversations that do not finish the citizen's task.",
   },
   costEstimate: {
-    title: "Illustrative cost estimate",
-    short: "Marginal cost after eGov integration",
+    title: "Pilot cost measurement",
+    short: "Measure before making a cost claim",
     plain:
-      "These figures estimate the additional operating cost after integration with eGov's existing identity, gateway, data, queue, security, and monitoring capabilities. They are not a vendor quote or government procurement estimate.",
+      "A pilot should measure hosting, eGov AI, API, messaging, storage, and support usage before publishing a cost per completed transaction.",
     example:
-      "The sample assumes a 90% API-only, 9% efficient AI, and 1% advanced AI request mix, plus a ₱5,000 monthly allocation for shared platform capacity.",
+      "Tag each completed journey with its actual model, API, messaging, storage, and compute usage, then calculate the unit cost from observed data.",
     why:
-      "eGov does not need to fund a second platform. Every assumption can be replaced with actual contracts and measured usage during a pilot.",
+      "Public cost claims should be reproducible from usage data and applicable contracts, not invented assumptions.",
   },
   sandbox: {
     title: "Isolated sandbox",
@@ -648,25 +648,25 @@ const STACK_LAYERS = [
 
 const COST_PATHS: DiagramItem[] = [
   {
-    title: "API-only path",
-    detail: "No AI call · 90% sample mix",
-    metric: "< ₱0.01 / transaction",
+    title: "Routing call",
+    detail: "eGov AI interprets each chat request today",
+    metric: "Meter per request",
     icon: Code2,
     term: "costRouting",
     tone: "green",
   },
   {
-    title: "Efficient AI path",
-    detail: "Language + extraction · 9% sample mix",
-    metric: "₱0.20 / transaction",
+    title: "Service execution",
+    detail: "Provider APIs and typed server adapters",
+    metric: "Meter per provider",
     icon: Gauge,
     term: "costRouting",
     tone: "blue",
   },
   {
-    title: "Advanced AI path",
-    detail: "Complex planning only · 1% sample mix",
-    metric: "₱1.50 / transaction",
+    title: "Channel delivery",
+    detail: "Hosting, storage and SMS where used",
+    metric: "Meter actual usage",
     icon: Brain,
     term: "costRouting",
     tone: "purple",
@@ -675,8 +675,8 @@ const COST_PATHS: DiagramItem[] = [
 
 const COST_CONTROLS: DiagramItem[] = [
   {
-    title: "API first",
-    detail: "Known requests run without an AI model",
+    title: "Typed execution",
+    detail: "Keep provider actions deterministic after routing",
     icon: Code2,
   },
   {
@@ -708,19 +708,19 @@ const COST_CONTROLS: DiagramItem[] = [
 
 const COST_SCENARIOS = [
   {
-    volume: "10K",
-    monthly: "₱5,400 / month",
-    unit: "₱0.54 each",
+    volume: "API",
+    monthly: "Provider usage",
+    unit: "requests + fees",
   },
   {
-    volume: "100K",
-    monthly: "₱9,000 / month",
-    unit: "₱0.09 each",
+    volume: "AI",
+    monthly: "eGov AI usage",
+    unit: "calls + tokens",
   },
   {
-    volume: "1M",
-    monthly: "₱45,000 / month",
-    unit: "≈ ₱0.05 each",
+    volume: "OPS",
+    monthly: "Runtime + people",
+    unit: "completed tasks",
   },
 ];
 
@@ -731,7 +731,7 @@ const QUICK_QA = [
   },
   {
     q: "Why use AI for simple requests?",
-    a: "We do not. Known requests use rules and direct APIs. eGovAI is used when language, Taglish, translation, or document reading adds value.",
+    a: "The current chat uses eGov AI to interpret every request. Once routed, typed server adapters—not the model—perform connected service actions.",
   },
   {
     q: "What stops hallucinations?",
@@ -739,15 +739,15 @@ const QUICK_QA = [
   },
   {
     q: "How is personal data protected?",
-    a: "The system minimizes data, encrypts it, removes unnecessary identifiers, uses short-lived access, and logs every read and share.",
+    a: "The demo keeps credentials server-side and seals the local SSO session. Its Memory, Vault, and browser audit views are fixtures—not production data stores. The production controls shown here are targets.",
   },
   {
     q: "What if an agency API is down?",
-    a: "The task stays pending in the durable workflow. It retries safely, shows the real status, and moves to human review when needed.",
+    a: "The current request fails with a normalized provider error. Durable retries and operator review are production requirements, not implemented demo behavior.",
   },
   {
     q: "How do you stop duplicate payments?",
-    a: "Every write uses an idempotency key. The workflow checks eGovPay and the agency ledger before it marks a payment complete.",
+    a: "The demo creates a unique eGovPay transaction and reads its provider status back. A production release still needs durable idempotency and reconciliation records.",
   },
   {
     q: "Does this replace eGovAI?",
@@ -767,7 +767,7 @@ const QUICK_QA = [
   },
   {
     q: "How do you control AI and infrastructure cost?",
-    a: "Known requests make no AI call. The design reuses eGov's existing platform and sends only ambiguous requests to AI. In our integration-mode sample, variable runtime is about ₱0.04 per transaction. At 100,000 transactions, the added operating cost is about ₱9,000 per month, excluding external transaction fees.",
+    a: "Measure eGov AI, provider API, SMS, storage, compute, and support usage during a pilot. This project does not claim an unverified peso cost per transaction.",
   },
 ];
 
@@ -776,7 +776,7 @@ const PRESENTATION_SLIDES = [
   { id: "architecture", label: "Backend and integration map" },
   { id: "apis", label: "Service API layer" },
   { id: "request", label: "Backend request lifecycle" },
-  { id: "data", label: "Encrypted data layer" },
+  { id: "data", label: "Target data layer" },
   { id: "generative-ui", label: "Schema-driven frontend" },
   { id: "safety", label: "Backend security controls" },
   { id: "reliability", label: "Workflow and payment backend" },
@@ -1338,21 +1338,22 @@ export default function HowItWorksPage() {
             <header className="mt-6">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="font-pixel rounded-full bg-emerald-50 px-3 py-1.5 text-[9px] font-bold uppercase tracking-[0.15em] text-emerald-700">
-                  Production architecture
+                  Reference architecture
                 </span>
                 <span className="font-pixel rounded-full bg-[#edf5ff] px-3 py-1.5 text-[9px] font-bold uppercase tracking-[0.15em] text-[#0a4f9e]">
                   View presentation
                 </span>
               </div>
               <h1 className="mt-4 max-w-3xl text-balance text-[30px] font-semibold leading-[1.08] tracking-tight text-slate-900 sm:text-[38px]">
-                eGov Agent production architecture
+                eGov Agent reference architecture
               </h1>
               <p className="mt-3 max-w-3xl text-pretty text-[15px] leading-relaxed text-slate-500">
-                This reference architecture separates client applications,
+                This target architecture separates client applications,
                 frontend rendering, the backend control plane, integration
                 APIs, and agency systems of record. AI helps interpret
                 requests, while backend policy, consent, and official APIs
-                authorize every real action.
+                authorize every real action. The README identifies which parts
+                are implemented in this hackathon repository today.
               </p>
               <div className="mt-4 flex flex-wrap gap-2">
                 <ExplainButton term="headless" onOpen={openTerm} />
@@ -1377,7 +1378,7 @@ export default function HowItWorksPage() {
             >
               {[
                 ["architecture", "System map"],
-                ["apis", "9 APIs"],
+                ["apis", "API catalog"],
                 ["request", "Request"],
                 ["data", "Vault + memory"],
                 ["safety", "Safety"],
@@ -1636,7 +1637,7 @@ export default function HowItWorksPage() {
 
               <div className="grid gap-3 lg:grid-cols-2">
                 <div>
-                  <DiagramLabel>3. Encrypted data layer</DiagramLabel>
+                  <DiagramLabel>3. Target data layer</DiagramLabel>
                   <div className="grid grid-cols-2 justify-items-center gap-2 sm:grid-cols-3">
                     <DiagramCard
                       item={{
@@ -1714,7 +1715,7 @@ export default function HowItWorksPage() {
             id="apis"
             number="03"
             title="Service API integration layer"
-            caption="The backend orchestrator calls nine typed eGov APIs through authenticated, policy-controlled adapters."
+            caption="The catalog view shows nine target services. Six are connected here: eGovPH SSO, eGov AI, Compass, eReport, eGovPay, and eMessage. eVerify, Face Liveness, and eGovChain are not integrated."
             presentationMode={presentationMode}
             active={presentationSlide === 2}
           >
@@ -1760,7 +1761,7 @@ export default function HowItWorksPage() {
             id="request"
             number="04"
             title="Backend request lifecycle"
-            caption="A client request becomes a verified government transaction through eight controlled backend steps."
+            caption="This is the target lifecycle for a verified transaction. The current demo implements routing and selected provider calls; durable workflow and several identity steps remain future work."
             presentationMode={presentationMode}
             active={presentationSlide === 3}
           >
@@ -1804,8 +1805,8 @@ export default function HowItWorksPage() {
           <Section
             id="data"
             number="05"
-            title="Encrypted data layer: vault and memory"
-            caption="Object storage handles encrypted files. The memory store handles approved context with provenance and expiry."
+            title="Target data layer: Vault and Memory"
+            caption="Production requires encrypted object storage and a purpose-scoped memory store. The current Vault and Memory screens use synthetic fixtures and browser state."
             presentationMode={presentationMode}
             active={presentationSlide === 4}
           >
@@ -1972,8 +1973,8 @@ export default function HowItWorksPage() {
           <Section
             id="safety"
             number="07"
-            title="Backend PII controls and AI guardrails"
-            caption="PII remains inside the trusted backend boundary. Models propose outputs, while deterministic policy authorizes actions."
+            title="Target PII controls and AI guardrails"
+            caption="Production should minimize and redact PII before model calls, while deterministic policy authorizes actions. The current demo sends only the bounded context assembled by its server router."
             presentationMode={presentationMode}
             active={presentationSlide === 6}
           >
@@ -1996,10 +1997,10 @@ export default function HowItWorksPage() {
               </div>
               <div className="mt-4 grid grid-cols-2 justify-items-center gap-2 sm:grid-cols-4">
                 {[
-                  ["Encrypted", Lock],
+                  ["Encryption target", Lock],
                   ["Short-lived access", Timer],
-                  ["No AI training", Brain],
-                  ["Fully logged", ScrollText],
+                  ["Provider terms review", Brain],
+                  ["Server audit target", ScrollText],
                 ].map(([label, Icon]) => {
                   const GuardIcon = Icon as LucideIcon;
                   return (
@@ -2050,8 +2051,8 @@ export default function HowItWorksPage() {
           <Section
             id="reliability"
             number="08"
-            title="Durable backend workflows and payments"
-            caption="The workflow engine persists state, retries idempotently, and verifies payment status against official backends."
+            title="Target durable workflows and payments"
+            caption="The demo reads eGovPay status from the provider. Persisted workflow state, idempotent retries, reconciliation, and human review remain production requirements."
             presentationMode={presentationMode}
             active={presentationSlide === 7}
           >
@@ -2323,8 +2324,8 @@ export default function HowItWorksPage() {
           <Section
             id="costs"
             number="10"
-            title="Low-cost eGov integration"
-            caption="This is a thin orchestration layer, not a second government platform. It reuses approved eGov capabilities and makes no AI call for known transactions."
+            title="Measurable eGov integration cost"
+            caption="This is a thin orchestration layer, not a second government platform. Publish cost claims only after measuring real pilot usage and applicable provider fees."
             presentationMode={presentationMode}
             active={presentationSlide === 9}
           >
@@ -2388,10 +2389,10 @@ export default function HowItWorksPage() {
                 <div className="flex items-center justify-between gap-3">
                   <div>
                     <div className="text-[13px] font-semibold text-slate-700">
-                      Added monthly operating cost
+                      Required pilot measurements
                     </div>
                     <p className="mt-1 text-[11px] text-slate-400">
-                      ₱5,000 shared capacity allocation + ₱0.04 variable cost per transaction
+                      Track every cost driver against completed transactions
                     </p>
                   </div>
                   <Gauge size={18} className="text-[#0a4f9e]" />
@@ -2419,18 +2420,17 @@ export default function HowItWorksPage() {
 
               <Panel className="bg-emerald-50">
                 <div className="font-pixel text-[9px] font-bold uppercase tracking-[0.14em] text-emerald-700">
-                  Integration-mode target
+                  Unit economics metric
                 </div>
                 <div className="mt-2 text-[20px] font-semibold tracking-tight text-emerald-900">
-                  ≈ ₱0.04 / transaction
+                  Cost / completed transaction
                 </div>
                 <p className="mt-1 text-[10.5px] leading-relaxed text-emerald-900/65">
-                  90% × ₱0.005 + 9% × ₱0.20 + 1% × ₱1.50
+                  Runtime + AI + APIs + messaging + storage + support
                 </p>
                 <p className="mt-2 text-[9.5px] leading-relaxed text-emerald-900/55">
-                  Sample marginal cost, not a quote. Reuses existing eGov
-                  infrastructure. Excludes existing platform costs, agency API,
-                  payment and carrier fees, taxes, and people.
+                  No peso estimate is claimed without measured usage and the
+                  relevant provider, carrier, hosting, tax, and staffing terms.
                 </p>
               </Panel>
             </div>

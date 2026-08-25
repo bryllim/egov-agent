@@ -245,7 +245,9 @@ export default function AgentPage() {
     scrollToBottom("smooth");
   }, [messages, agentProgress, streamingId, scrollToBottom]);
 
-  /* Load the transcript when the sidebar switches conversations */
+  /* Load the transcript when the sidebar switches conversations. This is an
+     intentional state reset at an external navigation boundary. */
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (lastHandledConvRef.current === activeConvId) return;
     lastHandledConvRef.current = activeConvId;
@@ -266,6 +268,7 @@ export default function AgentPage() {
       setMessages(transcript);
     }
   }, [activeConvId, conversations, clearAgentTimers]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   /* Keep the active conversation's transcript in sync with the chat */
   useEffect(() => {

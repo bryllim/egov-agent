@@ -18,7 +18,10 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "eGov Agent — Your AI Government Services Assistant",
   description:
-    "One conversation for every government service. Powered by eGov PH and eVerify.",
+    "An open-source eGov Hackathon 2026 prototype developed by Bryl Lim.",
+  authors: [{ name: "Bryl Lim", url: "https://bryllim.com" }],
+  creator: "Bryl Lim",
+  metadataBase: new URL("https://github.com/bryllim/egov-agent"),
 };
 
 export default function RootLayout({
